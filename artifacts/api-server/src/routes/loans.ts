@@ -25,6 +25,10 @@ function requireAuth(req: Request, res: Response): boolean {
     res.status(401).json({ error: "Unauthorized" });
     return false;
   }
+  if (req.user!.accountStatus === "suspended") {
+    res.status(403).json({ error: "Account suspended" });
+    return false;
+  }
   return true;
 }
 

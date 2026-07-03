@@ -8,6 +8,7 @@ import {
   usersTable,
   auditLogsTable,
 } from "@workspace/db";
+import { ObjectStorageService } from "../lib/objectStorage";
 import {
   UpdateMyProfileBody,
   GetMyProfileResponse,
@@ -22,10 +23,30 @@ import {
 } from "@workspace/api-zod";
 
 const router: IRouter = Router();
+const objectStorageService = new ObjectStorageService();
+
+async function trySetPrivateAcl(
+  rawPath: string,
+  ownerId: string,
+  log: Request["log"],
+): Promise<void> {
+  try {
+    await objectStorageService.trySetObjectEntityAclPolicy(rawPath, {
+      owner: ownerId,
+      visibility: "private",
+    });
+  } catch (err) {
+    log.warn({ err, rawPath }, "Failed to set ACL on uploaded object — file may not exist yet");
+  }
+}
 
 function requireAuth(req: Request, res: Response): boolean {
   if (!req.isAuthenticated()) {
     res.status(401).json({ error: "Unauthorized" });
+    return false;
+  }
+  if (req.user!.accountStatus === "suspended") {
+    res.status(403).json({ error: "Account suspended" });
     return false;
   }
   return true;
@@ -87,6 +108,14 @@ router.put("/profile", async (req: Request, res: Response): Promise<void> => {
     details: null,
   });
 
+  // Set ownership ACL on any newly uploaded private object URLs
+  const urlFields = [parsed.data.idFrontUrl, parsed.data.idBackUrl, parsed.data.selfieUrl];
+  await Promise.all(
+    urlFields
+      .filter((url): url is string => !!url)
+      .map((url) => trySetPrivateAcl(url, userId, req.log)),
+  );
+
   res.json(UpdateMyProfileResponse.parse(profile));
 });
 
@@ -128,6 +157,9 @@ router.post(
       entityId: doc.id,
       details: parsed.data.type,
     });
+
+    // Set ownership ACL on the uploaded document object
+    await trySetPrivateAcl(parsed.data.fileUrl, req.user!.id, req.log);
 
     res.status(201).json(AddMyDocumentResponse.parse(doc));
   },

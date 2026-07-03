@@ -36,7 +36,7 @@ export type InsertCustomerProfile = z.infer<typeof insertCustomerProfileSchema>;
 export type CustomerProfile = typeof customerProfilesTable.$inferSelect;
 
 export const otpCodesTable = pgTable("otp_codes", {
-  id: varchar("id").primaryKey().default("gen_random_uuid()"),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id")
     .notNull()
     .references(() => usersTable.id, { onDelete: "cascade" }),

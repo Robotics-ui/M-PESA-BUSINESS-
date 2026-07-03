@@ -36,6 +36,10 @@ function requireStaff(req: Request, res: Response): boolean {
     res.status(401).json({ error: "Unauthorized" });
     return false;
   }
+  if (req.user!.accountStatus === "suspended") {
+    res.status(403).json({ error: "Account suspended" });
+    return false;
+  }
   const role = req.user!.role;
   if (role !== "super_admin" && role !== "loan_officer") {
     res.status(403).json({ error: "Forbidden" });
@@ -47,6 +51,10 @@ function requireStaff(req: Request, res: Response): boolean {
 function requireSuperAdmin(req: Request, res: Response): boolean {
   if (!req.isAuthenticated()) {
     res.status(401).json({ error: "Unauthorized" });
+    return false;
+  }
+  if (req.user!.accountStatus === "suspended") {
+    res.status(403).json({ error: "Account suspended" });
     return false;
   }
   if (req.user!.role !== "super_admin") {
