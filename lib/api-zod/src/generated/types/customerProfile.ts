@@ -5,6 +5,7 @@
  * M-PESA Business Loans API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { CustomerProfileLoanStatus } from './customerProfileLoanStatus';
 
 export interface CustomerProfile {
   id: string;
@@ -27,6 +28,9 @@ export interface CustomerProfile {
   /** @nullable */
   selfieUrl: string | null;
   profileComplete: boolean;
+  /** Decimal amount as a string, e.g. '50000.00' */
+  approvedLoanAmount: string;
+  loanStatus: CustomerProfileLoanStatus;
   createdAt: Date;
   updatedAt: Date;
 }

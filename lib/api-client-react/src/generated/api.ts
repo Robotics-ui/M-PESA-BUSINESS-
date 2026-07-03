@@ -25,6 +25,8 @@ import type {
   AuthUserEnvelope,
   BeginBrowserLoginParams,
   CustomerDetail,
+  CustomerLoanAmountInput,
+  CustomerLoanStatusInput,
   CustomerProfile,
   CustomerProfileInput,
   CustomerStatusUpdate,
@@ -36,6 +38,7 @@ import type {
   HandleBrowserLoginCallbackParams,
   HealthStatus,
   ListAllLoanApplicationsParams,
+  ListAllVirtualCardsParams,
   ListCustomersParams,
   Loan,
   LoanApplication,
@@ -54,7 +57,11 @@ import type {
   RequestUploadUrlInput,
   RequestUploadUrlResult,
   SystemSetting,
-  SystemSettingInput
+  SystemSettingInput,
+  VirtualCard,
+  VirtualCardDecision,
+  VirtualCardInput,
+  VirtualCardWithCustomer
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -2263,6 +2270,450 @@ export function useListAuditLogs<TData = Awaited<ReturnType<typeof listAuditLogs
 
 
 
+
+export const getListMyVirtualCardsUrl = () => {
+
+
+
+
+  return `/api/virtual-cards/mine`
+}
+
+/**
+ * @summary List virtual cards submitted by the authenticated customer
+ */
+export const listMyVirtualCards = async ( options?: RequestInit): Promise<VirtualCard[]> => {
+
+  return customFetch<VirtualCard[]>(getListMyVirtualCardsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListMyVirtualCardsQueryKey = () => {
+    return [
+    `/api/virtual-cards/mine`
+    ] as const;
+    }
+
+
+export const getListMyVirtualCardsQueryOptions = <TData = Awaited<ReturnType<typeof listMyVirtualCards>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listMyVirtualCards>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListMyVirtualCardsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listMyVirtualCards>>> = ({ signal }) => listMyVirtualCards({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listMyVirtualCards>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListMyVirtualCardsQueryResult = NonNullable<Awaited<ReturnType<typeof listMyVirtualCards>>>
+export type ListMyVirtualCardsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List virtual cards submitted by the authenticated customer
+ */
+
+export function useListMyVirtualCards<TData = Awaited<ReturnType<typeof listMyVirtualCards>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listMyVirtualCards>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListMyVirtualCardsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateVirtualCardUrl = () => {
+
+
+
+
+  return `/api/virtual-cards`
+}
+
+/**
+ * @summary Submit a virtual card for admin approval
+ */
+export const createVirtualCard = async (virtualCardInput: VirtualCardInput, options?: RequestInit): Promise<VirtualCard> => {
+
+  return customFetch<VirtualCard>(getCreateVirtualCardUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(virtualCardInput)
+  }
+);}
+
+
+
+
+export const getCreateVirtualCardMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createVirtualCard>>, TError,{data: BodyType<VirtualCardInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createVirtualCard>>, TError,{data: BodyType<VirtualCardInput>}, TContext> => {
+
+const mutationKey = ['createVirtualCard'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createVirtualCard>>, {data: BodyType<VirtualCardInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createVirtualCard(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateVirtualCardMutationResult = NonNullable<Awaited<ReturnType<typeof createVirtualCard>>>
+    export type CreateVirtualCardMutationBody = BodyType<VirtualCardInput>
+    export type CreateVirtualCardMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Submit a virtual card for admin approval
+ */
+export const useCreateVirtualCard = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createVirtualCard>>, TError,{data: BodyType<VirtualCardInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createVirtualCard>>,
+        TError,
+        {data: BodyType<VirtualCardInput>},
+        TContext
+      > => {
+      return useMutation(getCreateVirtualCardMutationOptions(options));
+    }
+
+export const getListAllVirtualCardsUrl = (params?: ListAllVirtualCardsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/admin/virtual-cards?${stringifiedParams}` : `/api/admin/virtual-cards`
+}
+
+/**
+ * @summary List all virtual cards, optionally filtered by status (staff only)
+ */
+export const listAllVirtualCards = async (params?: ListAllVirtualCardsParams, options?: RequestInit): Promise<VirtualCardWithCustomer[]> => {
+
+  return customFetch<VirtualCardWithCustomer[]>(getListAllVirtualCardsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListAllVirtualCardsQueryKey = (params?: ListAllVirtualCardsParams,) => {
+    return [
+    `/api/admin/virtual-cards`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListAllVirtualCardsQueryOptions = <TData = Awaited<ReturnType<typeof listAllVirtualCards>>, TError = ErrorType<unknown>>(params?: ListAllVirtualCardsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAllVirtualCards>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListAllVirtualCardsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAllVirtualCards>>> = ({ signal }) => listAllVirtualCards(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listAllVirtualCards>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListAllVirtualCardsQueryResult = NonNullable<Awaited<ReturnType<typeof listAllVirtualCards>>>
+export type ListAllVirtualCardsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List all virtual cards, optionally filtered by status (staff only)
+ */
+
+export function useListAllVirtualCards<TData = Awaited<ReturnType<typeof listAllVirtualCards>>, TError = ErrorType<unknown>>(
+ params?: ListAllVirtualCardsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAllVirtualCards>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListAllVirtualCardsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getDecideVirtualCardUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin/virtual-cards/${id}/decision`
+}
+
+/**
+ * @summary Approve, reject, or request a new virtual card
+ */
+export const decideVirtualCard = async (id: string,
+    virtualCardDecision: VirtualCardDecision, options?: RequestInit): Promise<VirtualCard> => {
+
+  return customFetch<VirtualCard>(getDecideVirtualCardUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(virtualCardDecision)
+  }
+);}
+
+
+
+
+export const getDecideVirtualCardMutationOptions = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof decideVirtualCard>>, TError,{id: string;data: BodyType<VirtualCardDecision>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof decideVirtualCard>>, TError,{id: string;data: BodyType<VirtualCardDecision>}, TContext> => {
+
+const mutationKey = ['decideVirtualCard'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof decideVirtualCard>>, {id: string;data: BodyType<VirtualCardDecision>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  decideVirtualCard(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DecideVirtualCardMutationResult = NonNullable<Awaited<ReturnType<typeof decideVirtualCard>>>
+    export type DecideVirtualCardMutationBody = BodyType<VirtualCardDecision>
+    export type DecideVirtualCardMutationError = ErrorType<ErrorEnvelope>
+
+    /**
+ * @summary Approve, reject, or request a new virtual card
+ */
+export const useDecideVirtualCard = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof decideVirtualCard>>, TError,{id: string;data: BodyType<VirtualCardDecision>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof decideVirtualCard>>,
+        TError,
+        {id: string;data: BodyType<VirtualCardDecision>},
+        TContext
+      > => {
+      return useMutation(getDecideVirtualCardMutationOptions(options));
+    }
+
+export const getUpdateCustomerLoanAmountUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin/customers/${id}/loan-amount`
+}
+
+/**
+ * @summary Set the approved loan amount for a customer
+ */
+export const updateCustomerLoanAmount = async (id: string,
+    customerLoanAmountInput: CustomerLoanAmountInput, options?: RequestInit): Promise<CustomerProfile> => {
+
+  return customFetch<CustomerProfile>(getUpdateCustomerLoanAmountUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(customerLoanAmountInput)
+  }
+);}
+
+
+
+
+export const getUpdateCustomerLoanAmountMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCustomerLoanAmount>>, TError,{id: string;data: BodyType<CustomerLoanAmountInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateCustomerLoanAmount>>, TError,{id: string;data: BodyType<CustomerLoanAmountInput>}, TContext> => {
+
+const mutationKey = ['updateCustomerLoanAmount'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateCustomerLoanAmount>>, {id: string;data: BodyType<CustomerLoanAmountInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateCustomerLoanAmount(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateCustomerLoanAmountMutationResult = NonNullable<Awaited<ReturnType<typeof updateCustomerLoanAmount>>>
+    export type UpdateCustomerLoanAmountMutationBody = BodyType<CustomerLoanAmountInput>
+    export type UpdateCustomerLoanAmountMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Set the approved loan amount for a customer
+ */
+export const useUpdateCustomerLoanAmount = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCustomerLoanAmount>>, TError,{id: string;data: BodyType<CustomerLoanAmountInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateCustomerLoanAmount>>,
+        TError,
+        {id: string;data: BodyType<CustomerLoanAmountInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateCustomerLoanAmountMutationOptions(options));
+    }
+
+export const getUpdateCustomerLoanStatusUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin/customers/${id}/loan-status`
+}
+
+/**
+ * @summary Update the loan status for a customer
+ */
+export const updateCustomerLoanStatus = async (id: string,
+    customerLoanStatusInput: CustomerLoanStatusInput, options?: RequestInit): Promise<CustomerProfile> => {
+
+  return customFetch<CustomerProfile>(getUpdateCustomerLoanStatusUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(customerLoanStatusInput)
+  }
+);}
+
+
+
+
+export const getUpdateCustomerLoanStatusMutationOptions = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCustomerLoanStatus>>, TError,{id: string;data: BodyType<CustomerLoanStatusInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateCustomerLoanStatus>>, TError,{id: string;data: BodyType<CustomerLoanStatusInput>}, TContext> => {
+
+const mutationKey = ['updateCustomerLoanStatus'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateCustomerLoanStatus>>, {id: string;data: BodyType<CustomerLoanStatusInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateCustomerLoanStatus(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateCustomerLoanStatusMutationResult = NonNullable<Awaited<ReturnType<typeof updateCustomerLoanStatus>>>
+    export type UpdateCustomerLoanStatusMutationBody = BodyType<CustomerLoanStatusInput>
+    export type UpdateCustomerLoanStatusMutationError = ErrorType<ErrorEnvelope>
+
+    /**
+ * @summary Update the loan status for a customer
+ */
+export const useUpdateCustomerLoanStatus = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCustomerLoanStatus>>, TError,{id: string;data: BodyType<CustomerLoanStatusInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateCustomerLoanStatus>>,
+        TError,
+        {id: string;data: BodyType<CustomerLoanStatusInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateCustomerLoanStatusMutationOptions(options));
+    }
 
 export const getListSystemSettingsUrl = () => {
 

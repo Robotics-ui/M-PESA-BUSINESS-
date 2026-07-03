@@ -164,6 +164,8 @@ export const GetMyProfileResponse = zod.union([zod.object({
   "idBackUrl": zod.string().nullable(),
   "selfieUrl": zod.string().nullable(),
   "profileComplete": zod.boolean(),
+  "approvedLoanAmount": zod.string().describe('Decimal amount as a string, e.g. \'50000.00\''),
+  "loanStatus": zod.enum(['active', 'frozen', 'rejected']),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date()
 }),zod.null()])
@@ -196,6 +198,8 @@ export const UpdateMyProfileResponse = zod.object({
   "idBackUrl": zod.string().nullable(),
   "selfieUrl": zod.string().nullable(),
   "profileComplete": zod.boolean(),
+  "approvedLoanAmount": zod.string().describe('Decimal amount as a string, e.g. \'50000.00\''),
+  "loanStatus": zod.enum(['active', 'frozen', 'rejected']),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date()
 })
@@ -494,6 +498,8 @@ export const GetCustomerDetailResponse = zod.object({
   "idBackUrl": zod.string().nullable(),
   "selfieUrl": zod.string().nullable(),
   "profileComplete": zod.boolean(),
+  "approvedLoanAmount": zod.string().describe('Decimal amount as a string, e.g. \'50000.00\''),
+  "loanStatus": zod.enum(['active', 'frozen', 'rejected']),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date()
 }),zod.null()]),
@@ -630,6 +636,168 @@ export const ListAuditLogsResponseItem = zod.object({
   "createdAt": zod.coerce.date()
 })
 export const ListAuditLogsResponse = zod.array(ListAuditLogsResponseItem)
+
+
+/**
+ * @summary List virtual cards submitted by the authenticated customer
+ */
+export const ListMyVirtualCardsResponseItem = zod.object({
+  "id": zod.string(),
+  "customerId": zod.string(),
+  "cardNumber": zod.string(),
+  "cardHolderName": zod.string(),
+  "bank": zod.string().nullable(),
+  "status": zod.enum(['pending', 'approved', 'rejected']),
+  "rejectionReason": zod.string().nullable(),
+  "approvedBy": zod.string().nullable(),
+  "approvedAt": zod.coerce.date().nullable(),
+  "createdAt": zod.coerce.date()
+})
+export const ListMyVirtualCardsResponse = zod.array(ListMyVirtualCardsResponseItem)
+
+
+/**
+ * @summary Submit a virtual card for admin approval
+ */
+
+
+
+
+export const CreateVirtualCardBody = zod.object({
+  "cardNumber": zod.string().min(1),
+  "cardHolderName": zod.string().min(1),
+  "bank": zod.string().optional()
+})
+
+export const CreateVirtualCardResponse = zod.object({
+  "id": zod.string(),
+  "customerId": zod.string(),
+  "cardNumber": zod.string(),
+  "cardHolderName": zod.string(),
+  "bank": zod.string().nullable(),
+  "status": zod.enum(['pending', 'approved', 'rejected']),
+  "rejectionReason": zod.string().nullable(),
+  "approvedBy": zod.string().nullable(),
+  "approvedAt": zod.coerce.date().nullable(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary List all virtual cards, optionally filtered by status (staff only)
+ */
+export const ListAllVirtualCardsQueryParams = zod.object({
+  "status": zod.enum(['pending', 'approved', 'rejected']).optional()
+})
+
+export const ListAllVirtualCardsResponseItem = zod.object({
+  "id": zod.string(),
+  "customerId": zod.string(),
+  "cardNumber": zod.string(),
+  "cardHolderName": zod.string(),
+  "bank": zod.string().nullable(),
+  "status": zod.enum(['pending', 'approved', 'rejected']),
+  "rejectionReason": zod.string().nullable(),
+  "approvedBy": zod.string().nullable(),
+  "approvedAt": zod.coerce.date().nullable(),
+  "createdAt": zod.coerce.date()
+}).and(zod.object({
+  "customerName": zod.string().nullable(),
+  "customerEmail": zod.string().nullable()
+}))
+export const ListAllVirtualCardsResponse = zod.array(ListAllVirtualCardsResponseItem)
+
+
+/**
+ * @summary Approve, reject, or request a new virtual card
+ */
+export const DecideVirtualCardParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const DecideVirtualCardBody = zod.object({
+  "status": zod.enum(['approved', 'rejected', 'request_new']),
+  "rejectionReason": zod.string().optional()
+})
+
+export const DecideVirtualCardResponse = zod.object({
+  "id": zod.string(),
+  "customerId": zod.string(),
+  "cardNumber": zod.string(),
+  "cardHolderName": zod.string(),
+  "bank": zod.string().nullable(),
+  "status": zod.enum(['pending', 'approved', 'rejected']),
+  "rejectionReason": zod.string().nullable(),
+  "approvedBy": zod.string().nullable(),
+  "approvedAt": zod.coerce.date().nullable(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Set the approved loan amount for a customer
+ */
+export const UpdateCustomerLoanAmountParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const updateCustomerLoanAmountBodyApprovedLoanAmountMin = 0;
+
+
+
+export const UpdateCustomerLoanAmountBody = zod.object({
+  "approvedLoanAmount": zod.number().min(updateCustomerLoanAmountBodyApprovedLoanAmountMin)
+})
+
+export const UpdateCustomerLoanAmountResponse = zod.object({
+  "id": zod.string(),
+  "userId": zod.string(),
+  "phone": zod.string().nullable(),
+  "phoneVerified": zod.boolean(),
+  "dateOfBirth": zod.string().nullable(),
+  "address": zod.string().nullable(),
+  "city": zod.string().nullable(),
+  "nationalIdNumber": zod.string().nullable(),
+  "idFrontUrl": zod.string().nullable(),
+  "idBackUrl": zod.string().nullable(),
+  "selfieUrl": zod.string().nullable(),
+  "profileComplete": zod.boolean(),
+  "approvedLoanAmount": zod.string().describe('Decimal amount as a string, e.g. \'50000.00\''),
+  "loanStatus": zod.enum(['active', 'frozen', 'rejected']),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Update the loan status for a customer
+ */
+export const UpdateCustomerLoanStatusParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const UpdateCustomerLoanStatusBody = zod.object({
+  "loanStatus": zod.enum(['active', 'frozen', 'rejected'])
+})
+
+export const UpdateCustomerLoanStatusResponse = zod.object({
+  "id": zod.string(),
+  "userId": zod.string(),
+  "phone": zod.string().nullable(),
+  "phoneVerified": zod.boolean(),
+  "dateOfBirth": zod.string().nullable(),
+  "address": zod.string().nullable(),
+  "city": zod.string().nullable(),
+  "nationalIdNumber": zod.string().nullable(),
+  "idFrontUrl": zod.string().nullable(),
+  "idBackUrl": zod.string().nullable(),
+  "selfieUrl": zod.string().nullable(),
+  "profileComplete": zod.boolean(),
+  "approvedLoanAmount": zod.string().describe('Decimal amount as a string, e.g. \'50000.00\''),
+  "loanStatus": zod.enum(['active', 'frozen', 'rejected']),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
 
 
 /**

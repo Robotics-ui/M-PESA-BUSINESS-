@@ -581,6 +581,16 @@ router.patch(
       return;
     }
 
+    // Verify the target user exists and is a customer
+    const [targetUser] = await db
+      .select({ id: usersTable.id, role: usersTable.role })
+      .from(usersTable)
+      .where(eq(usersTable.id, id));
+    if (!targetUser || targetUser.role !== "customer") {
+      res.status(404).json({ error: "Customer not found" });
+      return;
+    }
+
     const amount = parsed.data.approvedLoanAmount.toString();
 
     const [existing] = await db
@@ -631,6 +641,16 @@ router.patch(
     const parsed = UpdateCustomerLoanStatusBody.safeParse(req.body);
     if (!parsed.success) {
       res.status(400).json({ error: parsed.error.message });
+      return;
+    }
+
+    // Verify the target user exists and is a customer
+    const [targetUser] = await db
+      .select({ id: usersTable.id, role: usersTable.role })
+      .from(usersTable)
+      .where(eq(usersTable.id, id));
+    if (!targetUser || targetUser.role !== "customer") {
+      res.status(404).json({ error: "Customer not found" });
       return;
     }
 

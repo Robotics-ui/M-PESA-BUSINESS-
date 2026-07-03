@@ -24,6 +24,8 @@ tags:
     description: In-app notification feed.
   - name: Settings
     description: System settings.
+  - name: VirtualCards
+    description: Customer virtual card submission and admin review.
 paths:
   /healthz:
     get:
@@ -580,6 +582,137 @@ paths:
                 items:
                   $ref: '#/components/schemas/AuditLog'
 
+  # ---------- Virtual Cards (customer) ----------
+  /virtual-cards/mine:
+    get:
+      tags: [VirtualCards]
+      operationId: listMyVirtualCards
+      summary: List virtual cards submitted by the authenticated customer
+      responses:
+        '200':
+          description: List of virtual cards.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/VirtualCard'
+  /virtual-cards:
+    post:
+      tags: [VirtualCards]
+      operationId: createVirtualCard
+      summary: Submit a virtual card for admin approval
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VirtualCardInput'
+      responses:
+        '201':
+          description: Virtual card submitted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VirtualCard'
+
+  # ---------- Virtual Cards (admin) ----------
+  /admin/virtual-cards:
+    get:
+      tags: [Admin]
+      operationId: listAllVirtualCards
+      summary: List all virtual cards, optionally filtered by status (staff only)
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [pending, approved, rejected]
+      responses:
+        '200':
+          description: List of virtual cards with customer info.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/VirtualCardWithCustomer'
+  /admin/virtual-cards/{id}/decision:
+    patch:
+      tags: [Admin]
+      operationId: decideVirtualCard
+      summary: Approve, reject, or request a new virtual card
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VirtualCardDecision'
+      responses:
+        '200':
+          description: Virtual card decision recorded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VirtualCard'
+        '404':
+          description: Not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  # ---------- Customer loan amount / status (admin) ----------
+  /admin/customers/{id}/loan-amount:
+    patch:
+      tags: [Admin]
+      operationId: updateCustomerLoanAmount
+      summary: Set the approved loan amount for a customer
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerLoanAmountInput'
+      responses:
+        '200':
+          description: Customer profile updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerProfile'
+  /admin/customers/{id}/loan-status:
+    patch:
+      tags: [Admin]
+      operationId: updateCustomerLoanStatus
+      summary: Update the loan status for a customer
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerLoanStatusInput'
+      responses:
+        '200':
+          description: Customer profile updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerProfile'
+        '404':
+          description: Not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
   # ---------- Settings ----------
   /admin/settings:
     get:
@@ -770,6 +903,8 @@ components:
         - idBackUrl
         - selfieUrl
         - profileComplete
+        - approvedLoanAmount
+        - loanStatus
         - createdAt
         - updatedAt
       properties:
@@ -785,6 +920,10 @@ components:
         idBackUrl: { type: [string, 'null'] }
         selfieUrl: { type: [string, 'null'] }
         profileComplete: { type: boolean }
+        approvedLoanAmount: { type: string, description: "Decimal amount as a string, e.g. '50000.00'" }
+        loanStatus:
+          type: string
+          enum: [active, frozen, rejected]
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
     CustomerProfileInput:
@@ -995,6 +1134,65 @@ components:
           $ref: '#/components/schemas/NotificationStatus'
         read: { type: boolean }
         createdAt: { type: string, format: date-time }
+
+    # ----- Virtual Cards -----
+    VirtualCardStatus:
+      type: string
+      enum: [pending, approved, rejected]
+    VirtualCard:
+      type: object
+      required: [id, customerId, cardNumber, cardHolderName, bank, status, rejectionReason, approvedBy, approvedAt, createdAt]
+      properties:
+        id: { type: string }
+        customerId: { type: string }
+        cardNumber: { type: string }
+        cardHolderName: { type: string }
+        bank: { type: [string, 'null'] }
+        status:
+          $ref: '#/components/schemas/VirtualCardStatus'
+        rejectionReason: { type: [string, 'null'] }
+        approvedBy: { type: [string, 'null'] }
+        approvedAt: { type: [string, 'null'], format: date-time }
+        createdAt: { type: string, format: date-time }
+    VirtualCardWithCustomer:
+      allOf:
+        - $ref: '#/components/schemas/VirtualCard'
+        - type: object
+          required: [customerName, customerEmail]
+          properties:
+            customerName: { type: [string, 'null'] }
+            customerEmail: { type: [string, 'null'] }
+    VirtualCardInput:
+      type: object
+      required: [cardNumber, cardHolderName]
+      properties:
+        cardNumber: { type: string, minLength: 1 }
+        cardHolderName: { type: string, minLength: 1 }
+        bank: { type: string }
+    VirtualCardDecision:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [approved, rejected, request_new]
+        rejectionReason:
+          type: string
+
+    CustomerLoanAmountInput:
+      type: object
+      required: [approvedLoanAmount]
+      properties:
+        approvedLoanAmount:
+          type: number
+          minimum: 0
+    CustomerLoanStatusInput:
+      type: object
+      required: [loanStatus]
+      properties:
+        loanStatus:
+          type: string
+          enum: [active, frozen, rejected]
 
     # ----- Admin -----
     DashboardStats:

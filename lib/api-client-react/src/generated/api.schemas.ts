@@ -90,6 +90,15 @@ export interface RequestUploadUrlResult {
   objectPath: string;
 }
 
+export type CustomerProfileLoanStatus = typeof CustomerProfileLoanStatus[keyof typeof CustomerProfileLoanStatus];
+
+
+export const CustomerProfileLoanStatus = {
+  active: 'active',
+  frozen: 'frozen',
+  rejected: 'rejected',
+} as const;
+
 export interface CustomerProfile {
   id: string;
   userId: string;
@@ -111,6 +120,9 @@ export interface CustomerProfile {
   /** @nullable */
   selfieUrl: string | null;
   profileComplete: boolean;
+  /** Decimal amount as a string, e.g. '50000.00' */
+  approvedLoanAmount: string;
+  loanStatus: CustomerProfileLoanStatus;
   createdAt: string;
   updatedAt: string;
 }
@@ -312,6 +324,79 @@ export interface Notification {
   createdAt: string;
 }
 
+export type VirtualCardStatus = typeof VirtualCardStatus[keyof typeof VirtualCardStatus];
+
+
+export const VirtualCardStatus = {
+  pending: 'pending',
+  approved: 'approved',
+  rejected: 'rejected',
+} as const;
+
+export interface VirtualCard {
+  id: string;
+  customerId: string;
+  cardNumber: string;
+  cardHolderName: string;
+  /** @nullable */
+  bank: string | null;
+  status: VirtualCardStatus;
+  /** @nullable */
+  rejectionReason: string | null;
+  /** @nullable */
+  approvedBy: string | null;
+  /** @nullable */
+  approvedAt: string | null;
+  createdAt: string;
+}
+
+export type VirtualCardWithCustomer = VirtualCard & ({
+  /** @nullable */
+  customerName: string | null;
+  /** @nullable */
+  customerEmail: string | null;
+});
+
+export interface VirtualCardInput {
+  /** @minLength 1 */
+  cardNumber: string;
+  /** @minLength 1 */
+  cardHolderName: string;
+  bank?: string;
+}
+
+export type VirtualCardDecisionStatus = typeof VirtualCardDecisionStatus[keyof typeof VirtualCardDecisionStatus];
+
+
+export const VirtualCardDecisionStatus = {
+  approved: 'approved',
+  rejected: 'rejected',
+  request_new: 'request_new',
+} as const;
+
+export interface VirtualCardDecision {
+  status: VirtualCardDecisionStatus;
+  rejectionReason?: string;
+}
+
+export interface CustomerLoanAmountInput {
+  /** @minimum 0 */
+  approvedLoanAmount: number;
+}
+
+export type CustomerLoanStatusInputLoanStatus = typeof CustomerLoanStatusInputLoanStatus[keyof typeof CustomerLoanStatusInputLoanStatus];
+
+
+export const CustomerLoanStatusInputLoanStatus = {
+  active: 'active',
+  frozen: 'frozen',
+  rejected: 'rejected',
+} as const;
+
+export interface CustomerLoanStatusInput {
+  loanStatus: CustomerLoanStatusInputLoanStatus;
+}
+
 export interface AuditLog {
   id: string;
   /** @nullable */
@@ -416,5 +501,18 @@ export const ListAllLoanApplicationsStatus = {
   approved: 'approved',
   rejected: 'rejected',
   hold: 'hold',
+} as const;
+
+export type ListAllVirtualCardsParams = {
+status?: ListAllVirtualCardsStatus;
+};
+
+export type ListAllVirtualCardsStatus = typeof ListAllVirtualCardsStatus[keyof typeof ListAllVirtualCardsStatus];
+
+
+export const ListAllVirtualCardsStatus = {
+  pending: 'pending',
+  approved: 'approved',
+  rejected: 'rejected',
 } as const;
 
