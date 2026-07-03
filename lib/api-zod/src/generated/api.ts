@@ -801,6 +801,95 @@ export const UpdateCustomerLoanStatusResponse = zod.object({
 
 
 /**
+ * @summary List my withdrawal requests, newest first
+ */
+export const ListMyWithdrawalsResponseItem = zod.object({
+  "id": zod.string(),
+  "customerId": zod.string(),
+  "amount": zod.string(),
+  "mpesaPhone": zod.string(),
+  "virtualCardId": zod.string(),
+  "status": zod.enum(['pending_verification', 'disbursed', 'failed', 'locked']),
+  "verificationAttempts": zod.number(),
+  "loanId": zod.string().nullable(),
+  "lockedAt": zod.coerce.date().nullable(),
+  "createdAt": zod.coerce.date()
+})
+export const ListMyWithdrawalsResponse = zod.array(ListMyWithdrawalsResponseItem)
+
+
+/**
+ * @summary Initiate a loan withdrawal request
+ */
+export const InitiateWithdrawalResponse = zod.object({
+  "id": zod.string(),
+  "customerId": zod.string(),
+  "amount": zod.string(),
+  "mpesaPhone": zod.string(),
+  "virtualCardId": zod.string(),
+  "status": zod.enum(['pending_verification', 'disbursed', 'failed', 'locked']),
+  "verificationAttempts": zod.number(),
+  "loanId": zod.string().nullable(),
+  "lockedAt": zod.coerce.date().nullable(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Submit card number to verify and disburse the loan
+ */
+export const VerifyWithdrawalCardParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+
+
+
+export const VerifyWithdrawalCardBody = zod.object({
+  "cardNumber": zod.string().min(1)
+})
+
+export const VerifyWithdrawalCardResponse = zod.object({
+  "success": zod.boolean(),
+  "message": zod.string(),
+  "attemptsLeft": zod.number().optional(),
+  "withdrawal": zod.object({
+  "id": zod.string(),
+  "customerId": zod.string(),
+  "amount": zod.string(),
+  "mpesaPhone": zod.string(),
+  "virtualCardId": zod.string(),
+  "status": zod.enum(['pending_verification', 'disbursed', 'failed', 'locked']),
+  "verificationAttempts": zod.number(),
+  "loanId": zod.string().nullable(),
+  "lockedAt": zod.coerce.date().nullable(),
+  "createdAt": zod.coerce.date()
+}).optional()
+})
+
+
+/**
+ * @summary List all withdrawal requests with customer info (staff only)
+ */
+export const ListAllWithdrawalsResponseItem = zod.object({
+  "id": zod.string(),
+  "customerId": zod.string(),
+  "amount": zod.string(),
+  "mpesaPhone": zod.string(),
+  "virtualCardId": zod.string(),
+  "status": zod.enum(['pending_verification', 'disbursed', 'failed', 'locked']),
+  "verificationAttempts": zod.number(),
+  "loanId": zod.string().nullable(),
+  "lockedAt": zod.coerce.date().nullable(),
+  "createdAt": zod.coerce.date()
+}).and(zod.object({
+  "customerName": zod.string().nullable(),
+  "customerEmail": zod.string().nullable()
+}))
+export const ListAllWithdrawalsResponse = zod.array(ListAllWithdrawalsResponseItem)
+
+
+/**
  * @summary List system settings
  */
 export const ListSystemSettingsResponseItem = zod.object({

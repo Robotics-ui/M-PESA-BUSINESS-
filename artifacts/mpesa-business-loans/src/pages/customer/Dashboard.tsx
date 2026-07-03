@@ -184,22 +184,28 @@ export default function Dashboard() {
             )}
           </div>
           <div className="flex items-end">
-            <Button
-              disabled={!canWithdraw}
-              className="w-full"
-              data-testid="button-withdraw"
-              title={
-                !loanActive
-                  ? "Loan is not active"
-                  : !cardApproved
-                    ? "Virtual card not approved"
-                    : approvedAmount === 0
-                      ? "No approved loan amount"
-                      : undefined
-              }
-            >
-              Withdraw loan
-            </Button>
+            {canWithdraw ? (
+              <Link href="/withdraw" className="w-full">
+                <Button className="w-full" data-testid="button-withdraw">
+                  Withdraw loan
+                </Button>
+              </Link>
+            ) : (
+              <Button
+                disabled
+                className="w-full"
+                data-testid="button-withdraw"
+                title={
+                  !loanActive
+                    ? "Loan is not active"
+                    : !cardApproved
+                      ? "Virtual card not approved"
+                      : "No approved loan amount"
+                }
+              >
+                Withdraw loan
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>

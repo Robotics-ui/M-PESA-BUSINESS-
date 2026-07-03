@@ -324,6 +324,50 @@ export interface Notification {
   createdAt: string;
 }
 
+export type WithdrawalStatus = typeof WithdrawalStatus[keyof typeof WithdrawalStatus];
+
+
+export const WithdrawalStatus = {
+  pending_verification: 'pending_verification',
+  disbursed: 'disbursed',
+  failed: 'failed',
+  locked: 'locked',
+} as const;
+
+export interface WithdrawalRequest {
+  id: string;
+  customerId: string;
+  amount: string;
+  mpesaPhone: string;
+  virtualCardId: string;
+  status: WithdrawalStatus;
+  verificationAttempts: number;
+  /** @nullable */
+  loanId: string | null;
+  /** @nullable */
+  lockedAt: string | null;
+  createdAt: string;
+}
+
+export type WithdrawalRequestWithCustomer = WithdrawalRequest & ({
+  /** @nullable */
+  customerName: string | null;
+  /** @nullable */
+  customerEmail: string | null;
+});
+
+export interface CardVerifyBody {
+  /** @minLength 1 */
+  cardNumber: string;
+}
+
+export interface CardVerifyResponse {
+  success: boolean;
+  message: string;
+  attemptsLeft?: number;
+  withdrawal?: WithdrawalRequest;
+}
+
 export type VirtualCardStatus = typeof VirtualCardStatus[keyof typeof VirtualCardStatus];
 
 

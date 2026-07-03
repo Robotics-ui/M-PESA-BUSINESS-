@@ -15,6 +15,7 @@ import CustomerLoans from "@/pages/customer/Loans";
 import CustomerLoanDetail from "@/pages/customer/LoanDetail";
 import CustomerNotifications from "@/pages/customer/Notifications";
 import CustomerVirtualCard from "@/pages/customer/VirtualCard";
+import CustomerWithdraw from "@/pages/customer/Withdraw";
 
 import AdminDashboard from "@/pages/admin/Dashboard";
 import AdminCustomers from "@/pages/admin/Customers";
@@ -45,6 +46,7 @@ function CustomerRoutes() {
         <Route path="/loans/:id" component={CustomerLoanDetail} />
         <Route path="/notifications" component={CustomerNotifications} />
         <Route path="/virtual-card" component={CustomerVirtualCard} />
+        <Route path="/withdraw" component={CustomerWithdraw} />
         <Route path="/">
           <Redirect to="/dashboard" />
         </Route>

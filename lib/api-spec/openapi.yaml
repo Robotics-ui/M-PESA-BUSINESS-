@@ -26,6 +26,8 @@ tags:
     description: System settings.
   - name: VirtualCards
     description: Customer virtual card submission and admin review.
+  - name: Withdrawals
+    description: Loan withdrawal initiation, card verification, and disbursement.
 paths:
   /healthz:
     get:
@@ -713,6 +715,85 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
 
+  # ---------- Withdrawals ----------
+  /withdrawals:
+    get:
+      tags: [Withdrawals]
+      operationId: listMyWithdrawals
+      summary: List my withdrawal requests, newest first
+      responses:
+        '200':
+          description: List of withdrawal requests.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WithdrawalRequest'
+    post:
+      tags: [Withdrawals]
+      operationId: initiateWithdrawal
+      summary: Initiate a loan withdrawal request
+      responses:
+        '201':
+          description: Withdrawal request created or existing pending request returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WithdrawalRequest'
+        '409':
+          description: Eligibility conditions not met.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /withdrawals/{id}/verify:
+    post:
+      tags: [Withdrawals]
+      operationId: verifyWithdrawalCard
+      summary: Submit card number to verify and disburse the loan
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CardVerifyBody'
+      responses:
+        '200':
+          description: Verification result (success or failure).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CardVerifyResponse'
+        '404':
+          description: Withdrawal request not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '409':
+          description: Withdrawal is not in a verifiable state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /admin/withdrawals:
+    get:
+      tags: [Admin]
+      operationId: listAllWithdrawals
+      summary: List all withdrawal requests with customer info (staff only)
+      responses:
+        '200':
+          description: List of withdrawal requests.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WithdrawalRequestWithCustomer'
+
   # ---------- Settings ----------
   /admin/settings:
     get:
@@ -1134,6 +1215,50 @@ components:
           $ref: '#/components/schemas/NotificationStatus'
         read: { type: boolean }
         createdAt: { type: string, format: date-time }
+
+    # ----- Withdrawals -----
+    WithdrawalStatus:
+      type: string
+      enum: [pending_verification, disbursed, failed, locked]
+    WithdrawalRequest:
+      type: object
+      required: [id, customerId, amount, mpesaPhone, virtualCardId, status, verificationAttempts, loanId, lockedAt, createdAt]
+      properties:
+        id: { type: string }
+        customerId: { type: string }
+        amount: { type: string }
+        mpesaPhone: { type: string }
+        virtualCardId: { type: string }
+        status:
+          $ref: '#/components/schemas/WithdrawalStatus'
+        verificationAttempts: { type: integer }
+        loanId: { type: [string, 'null'] }
+        lockedAt: { type: [string, 'null'], format: date-time }
+        createdAt: { type: string, format: date-time }
+    WithdrawalRequestWithCustomer:
+      allOf:
+        - $ref: '#/components/schemas/WithdrawalRequest'
+        - type: object
+          required: [customerName, customerEmail]
+          properties:
+            customerName: { type: [string, 'null'] }
+            customerEmail: { type: [string, 'null'] }
+    CardVerifyBody:
+      type: object
+      required: [cardNumber]
+      properties:
+        cardNumber:
+          type: string
+          minLength: 1
+    CardVerifyResponse:
+      type: object
+      required: [success, message]
+      properties:
+        success: { type: boolean }
+        message: { type: string }
+        attemptsLeft: { type: integer }
+        withdrawal:
+          $ref: '#/components/schemas/WithdrawalRequest'
 
     # ----- Virtual Cards -----
     VirtualCardStatus:

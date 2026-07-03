@@ -1,0 +1,117 @@
+Loan Withdrawal Flow Using M-Pesa and Virtual Card Verification
+We need to modify the loan disbursement workflow.
+1. Admin Loan Approval
+After reviewing a customer, the Admin can:
+Set the Approved Loan Amount.
+Approve or reject the loan.
+The customer cannot edit the approved amount.
+Example:
+Loan Limit: KSh 100,000
+Admin Approved Amount: KSh 60,000
+Only the approved amount can be withdrawn.
+2. Virtual Card Registration
+After login, if the customer has no approved virtual card:
+Click Add Virtual Card
+Enter:
+Virtual Card Number
+Card Holder Name
+Card Status:
+Pending Approval
+Approved
+Rejected
+If rejected, the customer must submit another virtual card.
+3. Admin Card Approval
+The Admin reviews the submitted virtual card and can:
+Approve
+Reject
+Add rejection reason
+Only approved cards can be used for withdrawal verification.
+4. Loan Withdrawal
+Once both the loan and virtual card are approved:
+The customer clicks Withdraw Loan.
+The system automatically uses the customer's registered M-Pesa phone number (the number used during account registration). The customer cannot change this number during withdrawal.
+Display:
+Registered M-Pesa Number
+Approved Loan Amount
+Example:
+M-Pesa Number: 0712XXXXXX
+Amount: KSh 60,000
+Button:
+Continue
+5. Virtual Card Verification
+Before releasing the funds, require the customer to verify ownership of the approved virtual card.
+Prompt for:
+Virtual Card Number
+The system checks that it matches the Admin-approved card.
+If it matches:
+Verification Successful
+Proceed with withdrawal.
+If it does not match:
+Display "Card verification failed."
+Allow a limited number of retry attempts (e.g., 3).
+After repeated failures, temporarily lock the withdrawal and notify the Admin.
+6. Loan Disbursement
+After successful verification:
+Disburse the approved loan amount to the customer's registered M-Pesa number.
+Record the transaction in the loan history.
+Update the loan balance.
+Generate a receipt.
+Notify the customer by SMS and in-app notification.
+7. Customer Dashboard
+Display:
+Loan Limit
+Admin Approved Amount
+Registered M-Pesa Number
+Virtual Card Status
+Loan Status
+Withdraw Button (enabled only when all conditions are met)
+8. Admin Dashboard
+Admin can:
+Set Approved Loan Amount
+Approve/Reject Loan
+Approve/Reject Virtual Card
+View Registered M-Pesa Number
+View Withdrawal Requests
+Approve or cancel pending withdrawals (optional)
+View Loan History
+View Card Verification Logs
+View Audit Logs
+9. Security Rules
+Customers cannot change their registered M-Pesa number during withdrawal.
+Only the Admin can set or modify the approved loan amount.
+Only Admin-approved virtual cards can be used for verification.
+Every approval, verification, and withdrawal must be logged with timestamps and the Admin/User responsible.
+If card verification fails multiple times, lock the withdrawal process and alert the Admin.
+Complete Workflow
+Customer Login
+        │
+        ▼
+View Admin Approved Loan Amount
+        │
+        ▼
+Add Virtual Card
+        │
+        ▼
+Admin Reviews Card
+        │
+   ┌────┴────┐
+   │         │
+Approved   Rejected
+   │         │
+   ▼         ▼
+Withdraw   Add Another Card
+   │
+   ▼
+Display Registered M-Pesa Number
+   │
+   ▼
+Verify Approved Virtual Card
+   │
+   ▼
+Verification Successful
+   │
+   ▼
+Disburse Loan to Registered M-Pesa Number
+   │
+   ▼
+Generate Receipt + Update Loan History + Send Notifications

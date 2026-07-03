@@ -5,3 +5,4 @@ export * from "./documents";
 export * from "./notifications";
 export * from "./audit";
 export * from "./virtual_cards";
+export * from "./withdrawals";
