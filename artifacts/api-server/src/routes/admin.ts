@@ -399,9 +399,32 @@ router.patch(
       status: "sent",
     });
 
-    // Foundation phase: approving an application does not yet disburse a
-    // loan or generate a repayment schedule — that business logic is
-    // intentionally out of scope for this phase.
+    // Approving a loan application sets the customer's approved loan amount
+    // and activates their loan status so it immediately reflects on their
+    // dashboard/loans page and unlocks the withdrawal flow. Disbursement
+    // itself still happens separately via the withdrawal verification flow.
+    if (parsed.data.status === "approved") {
+      const [existingProfile] = await db
+        .select()
+        .from(customerProfilesTable)
+        .where(eq(customerProfilesTable.userId, application.customerId));
+
+      if (existingProfile) {
+        await db
+          .update(customerProfilesTable)
+          .set({
+            approvedLoanAmount: application.amount,
+            loanStatus: "active",
+          })
+          .where(eq(customerProfilesTable.userId, application.customerId));
+      } else {
+        await db.insert(customerProfilesTable).values({
+          userId: application.customerId,
+          approvedLoanAmount: application.amount,
+          loanStatus: "active",
+        });
+      }
+    }
 
     const [customer] = await db
       .select()

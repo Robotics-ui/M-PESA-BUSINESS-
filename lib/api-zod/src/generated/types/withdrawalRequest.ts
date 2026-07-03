@@ -14,6 +14,7 @@ export interface WithdrawalRequest {
   mpesaPhone: string;
   virtualCardId: string;
   status: WithdrawalStatus;
+  otpVerified: boolean;
   verificationAttempts: number;
   /** @nullable */
   loanId: string | null;

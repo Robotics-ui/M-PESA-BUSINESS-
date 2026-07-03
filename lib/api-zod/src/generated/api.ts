@@ -854,6 +854,7 @@ export const ListMyWithdrawalsResponseItem = zod.object({
   "mpesaPhone": zod.string(),
   "virtualCardId": zod.string(),
   "status": zod.enum(['pending_verification', 'disbursed', 'failed', 'locked']),
+  "otpVerified": zod.boolean(),
   "verificationAttempts": zod.number(),
   "loanId": zod.string().nullable(),
   "lockedAt": zod.coerce.date().nullable(),
@@ -863,8 +864,16 @@ export const ListMyWithdrawalsResponse = zod.array(ListMyWithdrawalsResponseItem
 
 
 /**
- * @summary Initiate a loan withdrawal request
+ * @summary Initiate a loan withdrawal request with a Safaricom (M-Pesa) number
  */
+export const initiateWithdrawalBodyMpesaPhoneMin = 9;
+
+
+
+export const InitiateWithdrawalBody = zod.object({
+  "mpesaPhone": zod.string().min(initiateWithdrawalBodyMpesaPhoneMin).describe('Safaricom (M-Pesa) registered number funds will be sent to.')
+})
+
 export const InitiateWithdrawalResponse = zod.object({
   "id": zod.string(),
   "customerId": zod.string(),
@@ -872,10 +881,57 @@ export const InitiateWithdrawalResponse = zod.object({
   "mpesaPhone": zod.string(),
   "virtualCardId": zod.string(),
   "status": zod.enum(['pending_verification', 'disbursed', 'failed', 'locked']),
+  "otpVerified": zod.boolean(),
   "verificationAttempts": zod.number(),
   "loanId": zod.string().nullable(),
   "lockedAt": zod.coerce.date().nullable(),
   "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Send an in-app OTP to verify the withdrawal's Safaricom number
+ */
+export const RequestWithdrawalOtpParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const RequestWithdrawalOtpResponse = zod.object({
+  "message": zod.string()
+})
+
+
+/**
+ * @summary Verify the OTP code sent for the withdrawal's Safaricom number
+ */
+export const VerifyWithdrawalOtpParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const verifyWithdrawalOtpBodyCodeMin = 6;
+export const verifyWithdrawalOtpBodyCodeMax = 6;
+
+
+
+export const VerifyWithdrawalOtpBody = zod.object({
+  "code": zod.string().min(verifyWithdrawalOtpBodyCodeMin).max(verifyWithdrawalOtpBodyCodeMax)
+})
+
+export const VerifyWithdrawalOtpResponse = zod.object({
+  "verified": zod.boolean(),
+  "withdrawal": zod.object({
+  "id": zod.string(),
+  "customerId": zod.string(),
+  "amount": zod.string(),
+  "mpesaPhone": zod.string(),
+  "virtualCardId": zod.string(),
+  "status": zod.enum(['pending_verification', 'disbursed', 'failed', 'locked']),
+  "otpVerified": zod.boolean(),
+  "verificationAttempts": zod.number(),
+  "loanId": zod.string().nullable(),
+  "lockedAt": zod.coerce.date().nullable(),
+  "createdAt": zod.coerce.date()
+}).optional()
 })
 
 
@@ -904,6 +960,7 @@ export const VerifyWithdrawalCardResponse = zod.object({
   "mpesaPhone": zod.string(),
   "virtualCardId": zod.string(),
   "status": zod.enum(['pending_verification', 'disbursed', 'failed', 'locked']),
+  "otpVerified": zod.boolean(),
   "verificationAttempts": zod.number(),
   "loanId": zod.string().nullable(),
   "lockedAt": zod.coerce.date().nullable(),
@@ -922,6 +979,7 @@ export const ListAllWithdrawalsResponseItem = zod.object({
   "mpesaPhone": zod.string(),
   "virtualCardId": zod.string(),
   "status": zod.enum(['pending_verification', 'disbursed', 'failed', 'locked']),
+  "otpVerified": zod.boolean(),
   "verificationAttempts": zod.number(),
   "loanId": zod.string().nullable(),
   "lockedAt": zod.coerce.date().nullable(),

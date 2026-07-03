@@ -725,7 +725,13 @@ paths:
     post:
       tags: [Withdrawals]
       operationId: initiateWithdrawal
-      summary: Initiate a loan withdrawal request
+      summary: Initiate a loan withdrawal request with a Safaricom (M-Pesa) number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InitiateWithdrawalBody'
       responses:
         '201':
           description: Withdrawal request created or existing pending request returned.
@@ -735,6 +741,64 @@ paths:
                 $ref: '#/components/schemas/WithdrawalRequest'
         '409':
           description: Eligibility conditions not met.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /withdrawals/{id}/otp/request:
+    post:
+      tags: [Withdrawals]
+      operationId: requestWithdrawalOtp
+      summary: Send an in-app OTP to verify the withdrawal's Safaricom number
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '200':
+          description: OTP sent.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestWithdrawalOtpResponse'
+        '404':
+          description: Withdrawal request not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '409':
+          description: Withdrawal is not in a verifiable state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /withdrawals/{id}/otp/verify:
+    post:
+      tags: [Withdrawals]
+      operationId: verifyWithdrawalOtp
+      summary: Verify the OTP code sent for the withdrawal's Safaricom number
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyWithdrawalOtpBody'
+      responses:
+        '200':
+          description: OTP verification result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerifyWithdrawalOtpResponse'
+        '400':
+          description: Invalid or expired code.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Withdrawal request not found.
           content:
             application/json:
               schema:
@@ -1239,7 +1303,7 @@ components:
       enum: [pending_verification, disbursed, failed, locked]
     WithdrawalRequest:
       type: object
-      required: [id, customerId, amount, mpesaPhone, virtualCardId, status, verificationAttempts, loanId, lockedAt, createdAt]
+      required: [id, customerId, amount, mpesaPhone, virtualCardId, status, otpVerified, verificationAttempts, loanId, lockedAt, createdAt]
       properties:
         id: { type: string }
         customerId: { type: string }
@@ -1248,10 +1312,39 @@ components:
         virtualCardId: { type: string }
         status:
           $ref: '#/components/schemas/WithdrawalStatus'
+        otpVerified: { type: boolean }
         verificationAttempts: { type: integer }
         loanId: { type: [string, 'null'] }
         lockedAt: { type: [string, 'null'], format: date-time }
         createdAt: { type: string, format: date-time }
+    InitiateWithdrawalBody:
+      type: object
+      required: [mpesaPhone]
+      properties:
+        mpesaPhone:
+          type: string
+          minLength: 9
+          description: Safaricom (M-Pesa) registered number funds will be sent to.
+    RequestWithdrawalOtpResponse:
+      type: object
+      required: [message]
+      properties:
+        message: { type: string }
+    VerifyWithdrawalOtpBody:
+      type: object
+      required: [code]
+      properties:
+        code:
+          type: string
+          minLength: 6
+          maxLength: 6
+    VerifyWithdrawalOtpResponse:
+      type: object
+      required: [verified]
+      properties:
+        verified: { type: boolean }
+        withdrawal:
+          $ref: '#/components/schemas/WithdrawalRequest'
     WithdrawalRequestWithCustomer:
       allOf:
         - $ref: '#/components/schemas/WithdrawalRequest'

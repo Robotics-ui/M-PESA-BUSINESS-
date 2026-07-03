@@ -11,10 +11,15 @@ import {
   auditLogsTable,
   notificationsTable,
   usersTable,
+  otpCodesTable,
 } from "@workspace/db";
 import {
   ListMyWithdrawalsResponse,
+  InitiateWithdrawalBody,
   InitiateWithdrawalResponse,
+  RequestWithdrawalOtpResponse,
+  VerifyWithdrawalOtpBody,
+  VerifyWithdrawalOtpResponse,
   VerifyWithdrawalCardParams,
   VerifyWithdrawalCardBody,
   VerifyWithdrawalCardResponse,
@@ -67,14 +72,23 @@ router.get("/withdrawals", async (req: Request, res: Response): Promise<void> =>
 
 /**
  * POST /withdrawals
- * Initiate a loan withdrawal. Checks eligibility, returns existing
- * pending_verification request if one already exists, otherwise creates a new
- * one. Blocks initiation if the most-recent request is locked.
+ * Initiate a loan withdrawal with a Safaricom (M-Pesa) number supplied by the
+ * customer. Checks eligibility, returns existing pending_verification
+ * request if one already exists (updating its phone number if it changed and
+ * resetting OTP verification), otherwise creates a new one. Blocks
+ * initiation if the most-recent request is locked.
  */
 router.post("/withdrawals", async (req: Request, res: Response): Promise<void> => {
   if (!requireAuth(req, res)) return;
 
   const userId = req.user!.id;
+
+  const parsed = InitiateWithdrawalBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const mpesaPhone = parsed.data.mpesaPhone.trim();
 
   // 1. Verify customer profile eligibility
   const [profile] = await db
@@ -90,13 +104,6 @@ router.post("/withdrawals", async (req: Request, res: Response): Promise<void> =
   const approvedAmount = Number(profile.approvedLoanAmount ?? "0");
   if (approvedAmount <= 0) {
     res.status(409).json({ error: "No approved loan amount set by admin." });
-    return;
-  }
-
-  if (!profile.phone || !profile.phoneVerified) {
-    res.status(409).json({
-      error: "Your phone number must be verified before withdrawing.",
-    });
     return;
   }
 
@@ -135,6 +142,16 @@ router.post("/withdrawals", async (req: Request, res: Response): Promise<void> =
       return;
     }
     if (latest.status === "pending_verification") {
+      if (latest.mpesaPhone !== mpesaPhone) {
+        // Phone changed — update it and reset OTP verification for this request
+        const [updated] = await db
+          .update(withdrawalRequestsTable)
+          .set({ mpesaPhone, otpVerified: false })
+          .where(eq(withdrawalRequestsTable.id, latest.id))
+          .returning();
+        res.status(201).json(InitiateWithdrawalResponse.parse(updated));
+        return;
+      }
       // Return the existing in-progress request
       res.status(201).json(InitiateWithdrawalResponse.parse(latest));
       return;
@@ -147,9 +164,10 @@ router.post("/withdrawals", async (req: Request, res: Response): Promise<void> =
     .values({
       customerId: userId,
       amount: profile.approvedLoanAmount,
-      mpesaPhone: profile.phone,
+      mpesaPhone,
       virtualCardId: card.id,
       status: "pending_verification",
+      otpVerified: false,
       verificationAttempts: 0,
     })
     .returning();
@@ -159,15 +177,167 @@ router.post("/withdrawals", async (req: Request, res: Response): Promise<void> =
     action: "withdrawal.initiated",
     entityType: "withdrawal_request",
     entityId: withdrawal.id,
-    details: `amount=${profile.approvedLoanAmount}`,
+    details: `amount=${profile.approvedLoanAmount}, phone=${mpesaPhone}`,
   });
 
   res.status(201).json(InitiateWithdrawalResponse.parse(withdrawal));
 });
 
 /**
+ * POST /withdrawals/:id/otp/request
+ * Send a fresh in-app OTP code to verify the Safaricom number attached to
+ * this withdrawal request.
+ */
+router.post(
+  "/withdrawals/:id/otp/request",
+  async (req: Request, res: Response): Promise<void> => {
+    if (!requireAuth(req, res)) return;
+
+    const params = VerifyWithdrawalCardParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+
+    const [withdrawal] = await db
+      .select()
+      .from(withdrawalRequestsTable)
+      .where(
+        and(
+          eq(withdrawalRequestsTable.id, params.data.id),
+          eq(withdrawalRequestsTable.customerId, req.user!.id),
+        ),
+      );
+
+    if (!withdrawal) {
+      res.status(404).json({ error: "Withdrawal request not found." });
+      return;
+    }
+
+    if (withdrawal.status !== "pending_verification") {
+      res.status(409).json({ error: `Withdrawal is already ${withdrawal.status}.` });
+      return;
+    }
+
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+    await db.insert(otpCodesTable).values({
+      userId: req.user!.id,
+      phone: withdrawal.mpesaPhone,
+      code,
+      expiresAt,
+    });
+
+    await db.insert(notificationsTable).values({
+      userId: req.user!.id,
+      channel: "in_app",
+      title: "Your withdrawal verification code",
+      message: `Your verification code for withdrawing to ${withdrawal.mpesaPhone} is ${code}. It expires in 10 minutes.`,
+      status: "sent",
+    });
+
+    req.log.info(
+      { userId: req.user!.id, withdrawalId: withdrawal.id },
+      "OTP generated for withdrawal phone verification",
+    );
+
+    res.json(
+      RequestWithdrawalOtpResponse.parse({
+        message: "Verification code sent — check your in-app notifications.",
+      }),
+    );
+  },
+);
+
+/**
+ * POST /withdrawals/:id/otp/verify
+ * Verify the OTP code for the Safaricom number attached to this withdrawal
+ * request. Must succeed before card verification can proceed.
+ */
+router.post(
+  "/withdrawals/:id/otp/verify",
+  async (req: Request, res: Response): Promise<void> => {
+    if (!requireAuth(req, res)) return;
+
+    const params = VerifyWithdrawalCardParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+
+    const parsed = VerifyWithdrawalOtpBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.message });
+      return;
+    }
+
+    const [withdrawal] = await db
+      .select()
+      .from(withdrawalRequestsTable)
+      .where(
+        and(
+          eq(withdrawalRequestsTable.id, params.data.id),
+          eq(withdrawalRequestsTable.customerId, req.user!.id),
+        ),
+      );
+
+    if (!withdrawal) {
+      res.status(404).json({ error: "Withdrawal request not found." });
+      return;
+    }
+
+    if (withdrawal.status !== "pending_verification") {
+      res.status(409).json({ error: `Withdrawal is already ${withdrawal.status}.` });
+      return;
+    }
+
+    const [otp] = await db
+      .select()
+      .from(otpCodesTable)
+      .where(
+        and(
+          eq(otpCodesTable.userId, req.user!.id),
+          eq(otpCodesTable.phone, withdrawal.mpesaPhone),
+          eq(otpCodesTable.code, parsed.data.code),
+        ),
+      )
+      .orderBy(desc(otpCodesTable.createdAt));
+
+    if (!otp || otp.expiresAt < new Date() || otp.verified) {
+      res.status(400).json({ error: "Invalid or expired code" });
+      return;
+    }
+
+    await db
+      .update(otpCodesTable)
+      .set({ verified: true })
+      .where(eq(otpCodesTable.id, otp.id));
+
+    const [updated] = await db
+      .update(withdrawalRequestsTable)
+      .set({ otpVerified: true })
+      .where(eq(withdrawalRequestsTable.id, withdrawal.id))
+      .returning();
+
+    await db.insert(auditLogsTable).values({
+      userId: req.user!.id,
+      action: "withdrawal.otp_verified",
+      entityType: "withdrawal_request",
+      entityId: withdrawal.id,
+      details: `phone=${withdrawal.mpesaPhone}`,
+    });
+
+    res.json(
+      VerifyWithdrawalOtpResponse.parse({ verified: true, withdrawal: updated }),
+    );
+  },
+);
+
+/**
  * POST /withdrawals/:id/verify
- * Verify the virtual card number.
+ * Verify the virtual card number. Requires the withdrawal's Safaricom
+ * number to have already been OTP-verified.
  *
  * On match: atomically claim the disbursement slot, then create loan +
  * repayment records inside a transaction. On mismatch: increment attempt
@@ -209,6 +379,13 @@ router.post(
       res
         .status(409)
         .json({ error: `Withdrawal is already ${withdrawal.status}.` });
+      return;
+    }
+
+    if (!withdrawal.otpVerified) {
+      res.status(409).json({
+        error: "Verify your Safaricom number with the OTP code before continuing.",
+      });
       return;
     }
 

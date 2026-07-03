@@ -361,12 +361,38 @@ export interface WithdrawalRequest {
   mpesaPhone: string;
   virtualCardId: string;
   status: WithdrawalStatus;
+  otpVerified: boolean;
   verificationAttempts: number;
   /** @nullable */
   loanId: string | null;
   /** @nullable */
   lockedAt: string | null;
   createdAt: string;
+}
+
+export interface InitiateWithdrawalBody {
+  /**
+     * Safaricom (M-Pesa) registered number funds will be sent to.
+     * @minLength 9
+     */
+  mpesaPhone: string;
+}
+
+export interface RequestWithdrawalOtpResponse {
+  message: string;
+}
+
+export interface VerifyWithdrawalOtpBody {
+  /**
+     * @minLength 6
+     * @maxLength 6
+     */
+  code: string;
+}
+
+export interface VerifyWithdrawalOtpResponse {
+  verified: boolean;
+  withdrawal?: WithdrawalRequest;
 }
 
 export type WithdrawalRequestWithCustomer = WithdrawalRequest & ({

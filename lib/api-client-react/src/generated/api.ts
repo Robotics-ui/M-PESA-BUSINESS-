@@ -37,6 +37,7 @@ import type {
   DocumentInput,
   ErrorEnvelope,
   HealthStatus,
+  InitiateWithdrawalBody,
   ListAllLoanApplicationsParams,
   ListAllVirtualCardsParams,
   ListCustomersParams,
@@ -56,9 +57,12 @@ import type {
   Repayment,
   RequestUploadUrlInput,
   RequestUploadUrlResult,
+  RequestWithdrawalOtpResponse,
   SignupInput,
   SystemSetting,
   SystemSettingInput,
+  VerifyWithdrawalOtpBody,
+  VerifyWithdrawalOtpResponse,
   VirtualCard,
   VirtualCardDecision,
   VirtualCardInput,
@@ -2700,16 +2704,16 @@ export const getInitiateWithdrawalUrl = () => {
 }
 
 /**
- * @summary Initiate a loan withdrawal request
+ * @summary Initiate a loan withdrawal request with a Safaricom (M-Pesa) number
  */
-export const initiateWithdrawal = async ( options?: RequestInit): Promise<WithdrawalRequest> => {
+export const initiateWithdrawal = async (initiateWithdrawalBody: InitiateWithdrawalBody, options?: RequestInit): Promise<WithdrawalRequest> => {
 
   return customFetch<WithdrawalRequest>(getInitiateWithdrawalUrl(),
   {
     ...options,
-    method: 'POST'
-
-
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(initiateWithdrawalBody)
   }
 );}
 
@@ -2717,8 +2721,8 @@ export const initiateWithdrawal = async ( options?: RequestInit): Promise<Withdr
 
 
 export const getInitiateWithdrawalMutationOptions = <TError = ErrorType<ErrorEnvelope>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof initiateWithdrawal>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof initiateWithdrawal>>, TError,void, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof initiateWithdrawal>>, TError,{data: BodyType<InitiateWithdrawalBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof initiateWithdrawal>>, TError,{data: BodyType<InitiateWithdrawalBody>}, TContext> => {
 
 const mutationKey = ['initiateWithdrawal'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -2730,10 +2734,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof initiateWithdrawal>>, void> = () => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof initiateWithdrawal>>, {data: BodyType<InitiateWithdrawalBody>}> = (props) => {
+          const {data} = props ?? {};
 
-
-          return  initiateWithdrawal(requestOptions)
+          return  initiateWithdrawal(data,requestOptions)
         }
 
 
@@ -2744,21 +2748,162 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type InitiateWithdrawalMutationResult = NonNullable<Awaited<ReturnType<typeof initiateWithdrawal>>>
-
+    export type InitiateWithdrawalMutationBody = BodyType<InitiateWithdrawalBody>
     export type InitiateWithdrawalMutationError = ErrorType<ErrorEnvelope>
 
     /**
- * @summary Initiate a loan withdrawal request
+ * @summary Initiate a loan withdrawal request with a Safaricom (M-Pesa) number
  */
 export const useInitiateWithdrawal = <TError = ErrorType<ErrorEnvelope>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof initiateWithdrawal>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof initiateWithdrawal>>, TError,{data: BodyType<InitiateWithdrawalBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof initiateWithdrawal>>,
         TError,
-        void,
+        {data: BodyType<InitiateWithdrawalBody>},
         TContext
       > => {
       return useMutation(getInitiateWithdrawalMutationOptions(options));
+    }
+
+export const getRequestWithdrawalOtpUrl = (id: string,) => {
+
+
+
+
+  return `/api/withdrawals/${id}/otp/request`
+}
+
+/**
+ * @summary Send an in-app OTP to verify the withdrawal's Safaricom number
+ */
+export const requestWithdrawalOtp = async (id: string, options?: RequestInit): Promise<RequestWithdrawalOtpResponse> => {
+
+  return customFetch<RequestWithdrawalOtpResponse>(getRequestWithdrawalOtpUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getRequestWithdrawalOtpMutationOptions = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestWithdrawalOtp>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof requestWithdrawalOtp>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['requestWithdrawalOtp'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof requestWithdrawalOtp>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  requestWithdrawalOtp(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RequestWithdrawalOtpMutationResult = NonNullable<Awaited<ReturnType<typeof requestWithdrawalOtp>>>
+
+    export type RequestWithdrawalOtpMutationError = ErrorType<ErrorEnvelope>
+
+    /**
+ * @summary Send an in-app OTP to verify the withdrawal's Safaricom number
+ */
+export const useRequestWithdrawalOtp = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestWithdrawalOtp>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof requestWithdrawalOtp>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getRequestWithdrawalOtpMutationOptions(options));
+    }
+
+export const getVerifyWithdrawalOtpUrl = (id: string,) => {
+
+
+
+
+  return `/api/withdrawals/${id}/otp/verify`
+}
+
+/**
+ * @summary Verify the OTP code sent for the withdrawal's Safaricom number
+ */
+export const verifyWithdrawalOtp = async (id: string,
+    verifyWithdrawalOtpBody: VerifyWithdrawalOtpBody, options?: RequestInit): Promise<VerifyWithdrawalOtpResponse> => {
+
+  return customFetch<VerifyWithdrawalOtpResponse>(getVerifyWithdrawalOtpUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(verifyWithdrawalOtpBody)
+  }
+);}
+
+
+
+
+export const getVerifyWithdrawalOtpMutationOptions = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof verifyWithdrawalOtp>>, TError,{id: string;data: BodyType<VerifyWithdrawalOtpBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof verifyWithdrawalOtp>>, TError,{id: string;data: BodyType<VerifyWithdrawalOtpBody>}, TContext> => {
+
+const mutationKey = ['verifyWithdrawalOtp'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof verifyWithdrawalOtp>>, {id: string;data: BodyType<VerifyWithdrawalOtpBody>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  verifyWithdrawalOtp(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type VerifyWithdrawalOtpMutationResult = NonNullable<Awaited<ReturnType<typeof verifyWithdrawalOtp>>>
+    export type VerifyWithdrawalOtpMutationBody = BodyType<VerifyWithdrawalOtpBody>
+    export type VerifyWithdrawalOtpMutationError = ErrorType<ErrorEnvelope>
+
+    /**
+ * @summary Verify the OTP code sent for the withdrawal's Safaricom number
+ */
+export const useVerifyWithdrawalOtp = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof verifyWithdrawalOtp>>, TError,{id: string;data: BodyType<VerifyWithdrawalOtpBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof verifyWithdrawalOtp>>,
+        TError,
+        {id: string;data: BodyType<VerifyWithdrawalOtpBody>},
+        TContext
+      > => {
+      return useMutation(getVerifyWithdrawalOtpMutationOptions(options));
     }
 
 export const getVerifyWithdrawalCardUrl = (id: string,) => {

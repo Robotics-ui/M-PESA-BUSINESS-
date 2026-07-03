@@ -5,6 +5,8 @@ import {
   useGetMyProfile,
   useListMyWithdrawals,
   useInitiateWithdrawal,
+  useRequestWithdrawalOtp,
+  useVerifyWithdrawalOtp,
   useVerifyWithdrawalCard,
   getListMyWithdrawalsQueryKey,
 } from "@workspace/api-client-react";
@@ -24,9 +26,12 @@ import {
   CreditCard,
   Wallet,
   ArrowRight,
+  ShieldCheck,
 } from "lucide-react";
 
-type Step = "loading" | "confirm" | "verify" | "success" | "locked" | "error";
+type Step = "loading" | "phone" | "otp" | "verify" | "success" | "locked" | "error";
+
+const MAX_VERIFY_ATTEMPTS = 3;
 
 export default function Withdraw() {
   const [, navigate] = useLocation();
@@ -35,6 +40,10 @@ export default function Withdraw() {
 
   const [step, setStep] = useState<Step>("loading");
   const [withdrawalId, setWithdrawalId] = useState<string | null>(null);
+  const [phoneInput, setPhoneInput] = useState("");
+  const [otpInput, setOtpInput] = useState("");
+  const [otpError, setOtpError] = useState<string | null>(null);
+  const [otpSent, setOtpSent] = useState(false);
   const [cardInput, setCardInput] = useState("");
   const [attemptsLeft, setAttemptsLeft] = useState(3);
   const [verifyError, setVerifyError] = useState<string | null>(null);
@@ -54,8 +63,9 @@ export default function Withdraw() {
     const latest = withdrawals?.[0];
     if (latest?.status === "pending_verification") {
       setWithdrawalId(latest.id);
+      setPhoneInput(latest.mpesaPhone);
       setAttemptsLeft(3 - latest.verificationAttempts);
-      setStep("verify");
+      setStep(latest.otpVerified ? "verify" : "otp");
     } else if (latest?.status === "disbursed") {
       setReceiptData({
         amount: latest.amount,
@@ -66,20 +76,53 @@ export default function Withdraw() {
     } else if (latest?.status === "locked") {
       setStep("locked");
     } else {
-      setStep("confirm");
+      setPhoneInput((prev) => prev || profile?.phone || "");
+      setStep("phone");
     }
-  }, [profileLoading, withdrawalsLoading, withdrawals]);
+  }, [profileLoading, withdrawalsLoading, withdrawals, profile]);
 
   const { mutate: initiate, isPending: initiating } = useInitiateWithdrawal({
     mutation: {
       onSuccess: (data) => {
         setWithdrawalId(data.id);
         queryClient.invalidateQueries({ queryKey: getListMyWithdrawalsQueryKey() });
-        setStep("verify");
+        requestOtp({ id: data.id });
       },
       onError: (err: any) => {
         const msg = err?.response?.data?.error ?? "Could not start withdrawal. Try again.";
         toast({ title: "Error", description: msg, variant: "destructive" });
+      },
+    },
+  });
+
+  const { mutate: requestOtp, isPending: sendingOtp } = useRequestWithdrawalOtp({
+    mutation: {
+      onSuccess: () => {
+        setOtpSent(true);
+        setOtpError(null);
+        setStep("otp");
+        toast({
+          title: "Code sent",
+          description: "Check your in-app notifications for the verification code.",
+        });
+      },
+      onError: (err: any) => {
+        const msg = err?.response?.data?.error ?? "Could not send verification code.";
+        toast({ title: "Error", description: msg, variant: "destructive" });
+      },
+    },
+  });
+
+  const { mutate: verifyOtp, isPending: verifyingOtp } = useVerifyWithdrawalOtp({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListMyWithdrawalsQueryKey() });
+        setOtpError(null);
+        setStep("verify");
+      },
+      onError: (err: any) => {
+        const msg = err?.response?.data?.error ?? "Invalid or expired code.";
+        setOtpError(msg);
       },
     },
   });
@@ -110,6 +153,19 @@ export default function Withdraw() {
     },
   });
 
+  const handlePhoneSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!phoneInput.trim()) return;
+    initiate({ data: { mpesaPhone: phoneInput.trim() } });
+  };
+
+  const handleOtpSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!withdrawalId || !otpInput.trim()) return;
+    setOtpError(null);
+    verifyOtp({ id: withdrawalId, data: { code: otpInput.trim() } });
+  };
+
   const handleVerify = (e: React.FormEvent) => {
     e.preventDefault();
     if (!withdrawalId || !cardInput.trim()) return;
@@ -118,7 +174,8 @@ export default function Withdraw() {
   };
 
   const approvedAmount = Number(profile?.approvedLoanAmount ?? "0");
-  const phone = profile?.phone ?? "—";
+  const activeWithdrawal = withdrawals?.find((w) => w.id === withdrawalId);
+  const displayPhone = activeWithdrawal?.mpesaPhone ?? phoneInput ?? profile?.phone ?? "—";
 
   // ── Loading ───────────────────────────────────────────────────────────────
   if (step === "loading") {
@@ -220,8 +277,8 @@ export default function Withdraw() {
     );
   }
 
-  // ── Confirm step ──────────────────────────────────────────────────────────
-  if (step === "confirm") {
+  // ── Phone step ────────────────────────────────────────────────────────────
+  if (step === "phone") {
     return (
       <div className="max-w-md space-y-6">
         <div>
@@ -233,29 +290,13 @@ export default function Withdraw() {
           </button>
           <h1 className="text-2xl font-semibold text-foreground">Withdraw loan</h1>
           <p className="text-muted-foreground mt-1">
-            Review the details below before continuing.
+            Add or confirm the Safaricom (M-Pesa) number you want your funds sent to.
           </p>
         </div>
 
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Wallet className="h-4 w-4" /> Withdrawal summary
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between py-2 border-b border-border">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Smartphone className="h-4 w-4" />
-                Registered M-Pesa number
-              </div>
-              {profileLoading ? (
-                <Skeleton className="h-5 w-28" />
-              ) : (
-                <span className="font-mono font-medium text-sm">{phone}</span>
-              )}
-            </div>
-            <div className="flex items-center justify-between py-2">
+          <CardContent className="pt-6 pb-4">
+            <div className="flex items-center justify-between py-2 border-b border-border mb-4">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Wallet className="h-4 w-4" />
                 Approved loan amount
@@ -268,6 +309,33 @@ export default function Withdraw() {
                 </span>
               )}
             </div>
+
+            <form onSubmit={handlePhoneSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="mpesaPhone">Safaricom (M-Pesa) number</Label>
+                <Input
+                  id="mpesaPhone"
+                  value={phoneInput}
+                  onChange={(e) => setPhoneInput(e.target.value)}
+                  placeholder="07XXXXXXXX or +2547XXXXXXXX"
+                  autoComplete="tel"
+                  required
+                />
+                <p className="text-xs text-muted-foreground">
+                  We'll send you an OTP code to confirm this number belongs to you before
+                  disbursing funds.
+                </p>
+              </div>
+
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={initiating || sendingOtp || profileLoading || approvedAmount <= 0 || !phoneInput.trim()}
+              >
+                {initiating || sendingOtp ? "Sending code…" : "Send verification code"}
+                {!initiating && !sendingOtp && <ArrowRight className="h-4 w-4 ml-2" />}
+              </Button>
+            </form>
           </CardContent>
         </Card>
 
@@ -275,24 +343,88 @@ export default function Withdraw() {
           <CardContent className="pt-4 pb-4">
             <p className="text-sm font-medium text-foreground mb-2">How withdrawal works</p>
             <ul className="text-xs text-muted-foreground space-y-1.5 list-disc pl-4">
-              <li>Funds will be sent to your registered M-Pesa number — you cannot change the number at this stage.</li>
+              <li>Enter the Safaricom number funds should be sent to, then confirm it with an OTP code sent to your in-app notifications.</li>
               <li>You must have an approved virtual card before you can withdraw. Add one from the Virtual Card page if you haven't already.</li>
-              <li>On the next screen, enter your virtual card number exactly as you registered it to confirm the withdrawal.</li>
-              <li>After 3 failed verification attempts, your withdrawal will be locked and you'll need to contact support to unlock it.</li>
+              <li>After OTP verification, enter your virtual card number exactly as you registered it to confirm the withdrawal.</li>
+              <li>After 3 failed card verification attempts, your withdrawal will be locked and you'll need to contact support to unlock it.</li>
               <li>Once verified, the full approved amount is disbursed immediately and a 12-month repayment schedule (10% flat interest) is created automatically.</li>
-              <li>You can only withdraw once per approved loan — make sure the details are correct before continuing.</li>
             </ul>
           </CardContent>
         </Card>
+      </div>
+    );
+  }
 
-        <Button
-          className="w-full"
-          disabled={initiating || profileLoading || approvedAmount <= 0}
-          onClick={() => initiate()}
-        >
-          {initiating ? "Starting…" : "Continue"}
-          {!initiating && <ArrowRight className="h-4 w-4 ml-2" />}
-        </Button>
+  // ── OTP step ──────────────────────────────────────────────────────────────
+  if (step === "otp") {
+    return (
+      <div className="max-w-md space-y-6">
+        <div>
+          <button
+            onClick={() => setStep("phone")}
+            className="flex items-center text-sm text-muted-foreground hover:text-foreground mb-4"
+          >
+            <ArrowLeft className="h-4 w-4 mr-1" /> Change number
+          </button>
+          <h1 className="text-2xl font-semibold text-foreground">Verify your number</h1>
+          <p className="text-muted-foreground mt-1">
+            Enter the code sent to your in-app notifications to confirm{" "}
+            <span className="font-mono font-medium">{displayPhone}</span>.
+          </p>
+        </div>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4" /> OTP verification
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleOtpSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="otpCode">6-digit verification code</Label>
+                <Input
+                  id="otpCode"
+                  value={otpInput}
+                  onChange={(e) => setOtpInput(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  placeholder="123456"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  required
+                />
+                <p className="text-xs text-muted-foreground">
+                  Check your notifications bell for the code — it expires in 10 minutes.
+                </p>
+              </div>
+
+              {otpError && (
+                <div className="flex items-start gap-2 rounded-md bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">
+                  <XCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                  <span>{otpError}</span>
+                </div>
+              )}
+
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={verifyingOtp || otpInput.trim().length < 6}
+              >
+                {verifyingOtp ? "Verifying…" : "Verify code"}
+                {!verifyingOtp && <ArrowRight className="h-4 w-4 ml-2" />}
+              </Button>
+
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full"
+                disabled={sendingOtp || !withdrawalId}
+                onClick={() => withdrawalId && requestOtp({ id: withdrawalId })}
+              >
+                {sendingOtp ? "Resending…" : "Resend code"}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -303,7 +435,7 @@ export default function Withdraw() {
       <div>
         <h1 className="text-2xl font-semibold text-foreground">Verify your card</h1>
         <p className="text-muted-foreground mt-1">
-          Enter your approved virtual card number to confirm the withdrawal.
+          Enter your admin-approved virtual card number to confirm the withdrawal.
         </p>
       </div>
 
@@ -314,18 +446,14 @@ export default function Withdraw() {
             <span className="text-muted-foreground flex items-center gap-1">
               <Smartphone className="h-3.5 w-3.5" /> M-Pesa number
             </span>
-            <span className="font-mono font-medium">
-              {withdrawals?.find((w) => w.id === withdrawalId)?.mpesaPhone ?? phone}
-            </span>
+            <span className="font-mono font-medium">{displayPhone}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground flex items-center gap-1">
               <Wallet className="h-3.5 w-3.5" /> Amount
             </span>
             <span className="font-semibold">
-              {formatCurrency(
-                withdrawals?.find((w) => w.id === withdrawalId)?.amount ?? approvedAmount.toString(),
-              )}
+              {formatCurrency(activeWithdrawal?.amount ?? approvedAmount.toString())}
             </span>
           </div>
         </CardContent>
@@ -350,7 +478,7 @@ export default function Withdraw() {
                 required
               />
               <p className="text-xs text-muted-foreground">
-                Enter the card number exactly as you registered it.
+                Enter the card number exactly as it appears on your admin-approved virtual card.
               </p>
             </div>
 
@@ -387,5 +515,3 @@ export default function Withdraw() {
     </div>
   );
 }
-
-const MAX_VERIFY_ATTEMPTS = 3;

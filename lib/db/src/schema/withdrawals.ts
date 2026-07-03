@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, varchar, timestamp, numeric, integer } from "drizzle-orm/pg-core";
+import { pgTable, varchar, timestamp, numeric, integer, boolean } from "drizzle-orm/pg-core";
 import { usersTable } from "./auth";
 import { virtualCardsTable } from "./virtual_cards";
 import { loansTable } from "./loans";
@@ -24,6 +24,7 @@ export const withdrawalRequestsTable = pgTable("withdrawal_requests", {
   status: varchar("status", { enum: withdrawalStatuses })
     .notNull()
     .default("pending_verification"),
+  otpVerified: boolean("otp_verified").notNull().default(false),
   verificationAttempts: integer("verification_attempts").notNull().default(0),
   loanId: varchar("loan_id").references(() => loansTable.id, { onDelete: "set null" }),
   lockedAt: timestamp("locked_at", { withTimezone: true }),
