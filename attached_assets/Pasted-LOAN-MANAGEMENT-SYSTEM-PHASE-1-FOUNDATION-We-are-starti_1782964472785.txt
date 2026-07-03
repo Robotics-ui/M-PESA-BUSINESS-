@@ -1,0 +1,137 @@
+LOAN MANAGEMENT SYSTEM - PHASE 1 FOUNDATION
+
+We are starting a new Loan Management System.
+
+Build a scalable, secure, production-ready architecture without implementing complex business rules yet. We will fine-tune the system incrementally.
+
+General Requirements
+
+- Modern responsive UI (Desktop & Mobile)
+- Role-based authentication
+- Clean dashboard
+- REST API architecture
+- Secure database design
+- Background workers support
+- Audit logging
+- Notification framework
+- Ready for M-Pesa integration
+- Ready for SMS integration
+
+User Roles
+
+- Super Admin
+- Loan Officer
+- Customer
+
+Customer Features
+
+- Register
+- Login
+- Verify phone number using OTP
+- Complete profile
+- Upload National ID (Front & Back)
+- Upload Passport Photo/Selfie
+- Upload Supporting Documents
+- View profile
+- Edit profile
+
+Loan Features
+
+- Apply for Loan
+- View Loan Status
+- View Active Loans
+- View Loan History
+- View Repayment Schedule
+
+Do not implement approval rules yet.
+
+Admin Features
+
+Dashboard showing:
+
+- Total Customers
+- Loan Applications
+- Active Loans
+- Repaid Loans
+- Pending Loans
+- Overdue Loans
+
+Customer Management
+
+- View Customers
+- Search Customers
+- Suspend Customer
+- Activate Customer
+
+Loan Management
+
+- View Applications
+- Approve
+- Reject
+- Hold
+- View Loan Details
+
+Notifications
+
+Create a notification framework supporting:
+
+- SMS
+- Email
+- In-app Notifications
+
+Implementation can come later.
+
+Database
+
+Design tables for:
+
+Users
+
+Customer Profiles
+
+Loan Applications
+
+Loans
+
+Repayments
+
+Documents
+
+Notifications
+
+Audit Logs
+
+System Settings
+
+Security
+
+- JWT Authentication
+- Password Hashing
+- Role-Based Access Control
+- File Validation
+- Audit Trail
+
+Workers
+
+Create background worker structure for future:
+
+- Loan Processing
+- Payment Reconciliation
+- Notification Queue
+- Reminder Scheduler
+
+Do not implement business logic yet.
+
+Deliverables
+
+- Database schema
+- API structure
+- Admin Dashboard
+- Customer Dashboard
+- Authentication
+- Responsive UI
+- Clean project architecture
+
+Do not add complex loan calculations or approval algorithms at this stage.
+
+The goal is to build a strong foundation that we will expand and fine-tune incrementally.

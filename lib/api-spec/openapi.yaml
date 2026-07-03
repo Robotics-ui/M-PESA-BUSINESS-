@@ -3,13 +3,27 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: M-PESA Business Loans API specification
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: Auth
+    description: Browser and mobile authentication endpoints.
+  - name: Storage
+    description: File upload and object serving endpoints.
+  - name: Profile
+    description: Customer profile management (documents, phone verification).
+  - name: Loans
+    description: Loan applications, active loans, and repayment schedules.
+  - name: Admin
+    description: Admin dashboard stats, customer management, loan review.
+  - name: Notifications
+    description: In-app notification feed.
+  - name: Settings
+    description: System settings.
 paths:
   /healthz:
     get:
@@ -24,7 +38,580 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # ---------- Auth ----------
+  /auth/user:
+    get:
+      tags: [Auth]
+      operationId: getCurrentAuthUser
+      summary: Get the currently authenticated user
+      parameters:
+        - $ref: '#/components/parameters/AuthorizationSessionHeader'
+        - $ref: '#/components/parameters/SessionCookie'
+      responses:
+        '200':
+          description: Auth status resolved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthUserEnvelope'
+  /login:
+    get:
+      tags: [Auth]
+      operationId: beginBrowserLogin
+      summary: Start the browser OIDC login flow
+      parameters:
+        - name: returnTo
+          in: query
+          required: false
+          description: Relative path to redirect to after login (must start with `/`). Defaults to `/`.
+          schema:
+            type: string
+      responses:
+        '302':
+          description: Redirect to the OIDC authorization endpoint.
+  /callback:
+    get:
+      tags: [Auth]
+      operationId: handleBrowserLoginCallback
+      summary: Complete the browser OIDC login flow
+      parameters:
+        - name: code
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: state
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: iss
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uri
+      responses:
+        '302':
+          description: Redirect to the `returnTo` path on success (defaults to `/`) or `/api/login` on failure.
+  /logout:
+    get:
+      tags: [Auth]
+      operationId: logoutBrowserSession
+      summary: Clear the session and begin OIDC logout
+      parameters:
+        - $ref: '#/components/parameters/AuthorizationSessionHeader'
+        - $ref: '#/components/parameters/SessionCookie'
+      responses:
+        '302':
+          description: Redirect to the OIDC provider logout URL.
+  /mobile-auth/token-exchange:
+    post:
+      tags: [Auth]
+      operationId: exchangeMobileAuthorizationCode
+      summary: Exchange a mobile OIDC code for a session token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MobileTokenExchangeRequest'
+      responses:
+        '200':
+          description: Session created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MobileTokenExchangeSuccess'
+        '400':
+          description: Missing or invalid required fields.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Token did not contain usable claims.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '500':
+          description: Token exchange failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /mobile-auth/logout:
+    post:
+      tags: [Auth]
+      operationId: logoutMobileSession
+      summary: Delete a mobile session token
+      parameters:
+        - $ref: '#/components/parameters/AuthorizationSessionHeader'
+      responses:
+        '200':
+          description: Logout processed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogoutSuccess'
+
+  # ---------- Storage ----------
+  /storage/uploads/request-url:
+    post:
+      tags: [Storage]
+      operationId: requestUploadUrl
+      summary: Request a presigned upload URL
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RequestUploadUrlInput'
+      responses:
+        '200':
+          description: Presigned URL generated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestUploadUrlResult'
+
+  # ---------- Profile ----------
+  /profile:
+    get:
+      tags: [Profile]
+      operationId: getMyProfile
+      summary: Get the current customer's profile
+      responses:
+        '200':
+          description: Profile found.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/CustomerProfile'
+                  - type: 'null'
+        '401':
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+    put:
+      tags: [Profile]
+      operationId: updateMyProfile
+      summary: Create or update the current customer's profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerProfileInput'
+      responses:
+        '200':
+          description: Profile saved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerProfile'
+  /profile/documents:
+    get:
+      tags: [Profile]
+      operationId: listMyDocuments
+      summary: List documents uploaded by the current customer
+      responses:
+        '200':
+          description: List of documents.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Document'
+    post:
+      tags: [Profile]
+      operationId: addMyDocument
+      summary: Record an uploaded document (ID front/back, selfie, supporting)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DocumentInput'
+      responses:
+        '201':
+          description: Document recorded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Document'
+  /profile/otp/request:
+    post:
+      tags: [Profile]
+      operationId: requestPhoneOtp
+      summary: Generate an OTP code for phone verification (stubbed delivery)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OtpRequestInput'
+      responses:
+        '200':
+          description: OTP generated. In this foundation phase, the code is returned directly since no SMS provider is connected.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OtpRequestResult'
+  /profile/otp/verify:
+    post:
+      tags: [Profile]
+      operationId: verifyPhoneOtp
+      summary: Verify a phone OTP code
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OtpVerifyInput'
+      responses:
+        '200':
+          description: Verification result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OtpVerifyResult'
+        '400':
+          description: Invalid or expired code.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  # ---------- Loans (customer-facing) ----------
+  /loan-applications:
+    get:
+      tags: [Loans]
+      operationId: listMyLoanApplications
+      summary: List the current customer's loan applications
+      responses:
+        '200':
+          description: List of loan applications.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LoanApplication'
+    post:
+      tags: [Loans]
+      operationId: createLoanApplication
+      summary: Apply for a business loan
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoanApplicationInput'
+      responses:
+        '201':
+          description: Loan application created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoanApplication'
+  /loan-applications/{id}:
+    get:
+      tags: [Loans]
+      operationId: getMyLoanApplication
+      summary: Get one of the current customer's loan applications
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '200':
+          description: Loan application found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoanApplication'
+        '404':
+          description: Not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /loans:
+    get:
+      tags: [Loans]
+      operationId: listMyLoans
+      summary: List the current customer's active and past loans
+      responses:
+        '200':
+          description: List of loans.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Loan'
+  /loans/{id}/repayments:
+    get:
+      tags: [Loans]
+      operationId: getLoanRepaymentSchedule
+      summary: Get the repayment schedule for a loan
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '200':
+          description: Repayment schedule.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Repayment'
+        '404':
+          description: Not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  # ---------- Notifications ----------
+  /notifications:
+    get:
+      tags: [Notifications]
+      operationId: listMyNotifications
+      summary: List notifications for the current user
+      responses:
+        '200':
+          description: List of notifications.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Notification'
+  /notifications/{id}/read:
+    patch:
+      tags: [Notifications]
+      operationId: markNotificationRead
+      summary: Mark a notification as read
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '200':
+          description: Notification updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notification'
+        '404':
+          description: Not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  # ---------- Admin ----------
+  /admin/dashboard/stats:
+    get:
+      tags: [Admin]
+      operationId: getAdminDashboardStats
+      summary: Get admin dashboard summary statistics
+      responses:
+        '200':
+          description: Dashboard statistics.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardStats'
+  /admin/customers:
+    get:
+      tags: [Admin]
+      operationId: listCustomers
+      summary: List all customers
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [active, suspended]
+      responses:
+        '200':
+          description: List of customers.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CustomerSummary'
+  /admin/customers/{id}:
+    get:
+      tags: [Admin]
+      operationId: getCustomerDetail
+      summary: Get a customer's full detail (profile, documents, loans)
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '200':
+          description: Customer detail.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerDetail'
+        '404':
+          description: Not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /admin/customers/{id}/status:
+    patch:
+      tags: [Admin]
+      operationId: updateCustomerStatus
+      summary: Suspend or activate a customer account
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerStatusUpdate'
+      responses:
+        '200':
+          description: Customer updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerSummary'
+        '404':
+          description: Not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /admin/loan-applications:
+    get:
+      tags: [Admin]
+      operationId: listAllLoanApplications
+      summary: List all loan applications (optionally filtered by status)
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [pending, approved, rejected, hold]
+      responses:
+        '200':
+          description: List of loan applications with customer info.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LoanApplicationWithCustomer'
+  /admin/loan-applications/{id}/decision:
+    patch:
+      tags: [Admin]
+      operationId: decideLoanApplication
+      summary: Approve, reject, or hold a loan application
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoanApplicationDecision'
+      responses:
+        '200':
+          description: Loan application decided.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoanApplicationWithCustomer'
+        '404':
+          description: Not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /admin/audit-logs:
+    get:
+      tags: [Admin]
+      operationId: listAuditLogs
+      summary: List recent audit log entries
+      responses:
+        '200':
+          description: List of audit log entries.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AuditLog'
+
+  # ---------- Settings ----------
+  /admin/settings:
+    get:
+      tags: [Settings]
+      operationId: listSystemSettings
+      summary: List system settings
+      responses:
+        '200':
+          description: List of system settings.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SystemSetting'
+    put:
+      tags: [Settings]
+      operationId: updateSystemSetting
+      summary: Create or update a system setting
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SystemSettingInput'
+      responses:
+        '200':
+          description: Setting saved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemSetting'
+
 components:
+  parameters:
+    AuthorizationSessionHeader:
+      name: Authorization
+      in: header
+      required: false
+      description: Opaque session token — `Bearer <sid>`.
+      schema:
+        type: string
+    SessionCookie:
+      name: sid
+      in: cookie
+      required: false
+      description: Browser session cookie.
+      schema:
+        type: string
+    IdParam:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+
   schemas:
     HealthStatus:
       type: object
@@ -34,3 +621,446 @@ components:
       required:
         - status
 
+    # ----- Auth -----
+    AuthUser:
+      type: object
+      required: [id, email, firstName, lastName, profileImageUrl, role, accountStatus]
+      properties:
+        id:
+          type: string
+        email:
+          type: [string, 'null']
+          format: email
+        firstName:
+          type: [string, 'null']
+        lastName:
+          type: [string, 'null']
+        profileImageUrl:
+          type: [string, 'null']
+        role:
+          $ref: '#/components/schemas/UserRole'
+        accountStatus:
+          $ref: '#/components/schemas/AccountStatus'
+    AuthUserEnvelope:
+      type: object
+      required: [user]
+      properties:
+        user:
+          oneOf:
+            - $ref: '#/components/schemas/AuthUser'
+            - type: 'null'
+    MobileTokenExchangeRequest:
+      type: object
+      required: [code, code_verifier, redirect_uri, state]
+      properties:
+        code:
+          type: string
+          minLength: 1
+        code_verifier:
+          type: string
+          minLength: 1
+        redirect_uri:
+          type: string
+          minLength: 1
+          format: uri
+        state:
+          type: string
+          minLength: 1
+        nonce:
+          type: string
+          minLength: 1
+    MobileTokenExchangeSuccess:
+      type: object
+      required: [token]
+      properties:
+        token:
+          type: string
+    LogoutSuccess:
+      type: object
+      required: [success]
+      properties:
+        success:
+          type: boolean
+          const: true
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+
+    # ----- Storage -----
+    RequestUploadUrlInput:
+      type: object
+      required: [name, size, contentType]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        size:
+          type: integer
+        contentType:
+          type: string
+          minLength: 1
+    RequestUploadUrlResult:
+      type: object
+      required: [uploadURL, objectPath]
+      properties:
+        uploadURL:
+          type: string
+        objectPath:
+          type: string
+
+    # ----- Users / Roles -----
+    UserRole:
+      type: string
+      enum: [super_admin, loan_officer, customer]
+    AccountStatus:
+      type: string
+      enum: [active, suspended]
+
+    # ----- Profile -----
+    CustomerProfile:
+      type: object
+      required:
+        - id
+        - userId
+        - phone
+        - phoneVerified
+        - dateOfBirth
+        - address
+        - city
+        - nationalIdNumber
+        - idFrontUrl
+        - idBackUrl
+        - selfieUrl
+        - profileComplete
+        - createdAt
+        - updatedAt
+      properties:
+        id: { type: string }
+        userId: { type: string }
+        phone: { type: [string, 'null'] }
+        phoneVerified: { type: boolean }
+        dateOfBirth: { type: [string, 'null'] }
+        address: { type: [string, 'null'] }
+        city: { type: [string, 'null'] }
+        nationalIdNumber: { type: [string, 'null'] }
+        idFrontUrl: { type: [string, 'null'] }
+        idBackUrl: { type: [string, 'null'] }
+        selfieUrl: { type: [string, 'null'] }
+        profileComplete: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    CustomerProfileInput:
+      type: object
+      properties:
+        phone: { type: string }
+        dateOfBirth: { type: string }
+        address: { type: string }
+        city: { type: string }
+        nationalIdNumber: { type: string }
+        idFrontUrl: { type: string }
+        idBackUrl: { type: string }
+        selfieUrl: { type: string }
+
+    DocumentType:
+      type: string
+      enum: [id_front, id_back, selfie, supporting]
+    Document:
+      type: object
+      required: [id, customerId, type, fileName, fileUrl, uploadedAt]
+      properties:
+        id: { type: string }
+        customerId: { type: string }
+        type:
+          $ref: '#/components/schemas/DocumentType'
+        fileName: { type: string }
+        fileUrl: { type: string }
+        uploadedAt: { type: string, format: date-time }
+    DocumentInput:
+      type: object
+      required: [type, fileName, fileUrl]
+      properties:
+        type:
+          $ref: '#/components/schemas/DocumentType'
+        fileName: { type: string, minLength: 1 }
+        fileUrl: { type: string, minLength: 1 }
+
+    OtpRequestInput:
+      type: object
+      required: [phone]
+      properties:
+        phone:
+          type: string
+          minLength: 1
+    OtpRequestResult:
+      type: object
+      required: [message, devCode]
+      properties:
+        message:
+          type: string
+        devCode:
+          type: string
+          description: The generated OTP, returned directly since no SMS provider is connected yet (foundation phase stub).
+    OtpVerifyInput:
+      type: object
+      required: [phone, code]
+      properties:
+        phone: { type: string, minLength: 1 }
+        code: { type: string, minLength: 1 }
+    OtpVerifyResult:
+      type: object
+      required: [verified]
+      properties:
+        verified:
+          type: boolean
+
+    # ----- Loans -----
+    LoanApplicationStatus:
+      type: string
+      enum: [pending, approved, rejected, hold]
+    LoanApplication:
+      type: object
+      required:
+        - id
+        - customerId
+        - amount
+        - purpose
+        - loanType
+        - termMonths
+        - status
+        - reviewedBy
+        - reviewedAt
+        - reviewNotes
+        - createdAt
+        - updatedAt
+      properties:
+        id: { type: string }
+        customerId: { type: string }
+        amount: { type: string }
+        purpose: { type: string }
+        loanType: { type: string }
+        termMonths: { type: integer }
+        status:
+          $ref: '#/components/schemas/LoanApplicationStatus'
+        reviewedBy: { type: [string, 'null'] }
+        reviewedAt: { type: [string, 'null'], format: date-time }
+        reviewNotes: { type: [string, 'null'] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    LoanApplicationInput:
+      type: object
+      required: [amount, purpose, loanType, termMonths]
+      properties:
+        amount:
+          type: string
+          description: Decimal amount as a string, e.g. "50000.00"
+        purpose:
+          type: string
+          minLength: 1
+        loanType:
+          type: string
+          minLength: 1
+        termMonths:
+          type: integer
+          minimum: 1
+          maximum: 60
+    LoanApplicationWithCustomer:
+      allOf:
+        - $ref: '#/components/schemas/LoanApplication'
+        - type: object
+          required: [customerName, customerEmail]
+          properties:
+            customerName: { type: [string, 'null'] }
+            customerEmail: { type: [string, 'null'] }
+    LoanApplicationDecision:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [approved, rejected, hold]
+        reviewNotes:
+          type: string
+
+    LoanStatus:
+      type: string
+      enum: [active, repaid, overdue, defaulted]
+    Loan:
+      type: object
+      required:
+        - id
+        - applicationId
+        - customerId
+        - principal
+        - interestRate
+        - termMonths
+        - status
+        - disbursedAt
+        - dueDate
+        - createdAt
+        - updatedAt
+      properties:
+        id: { type: string }
+        applicationId: { type: string }
+        customerId: { type: string }
+        principal: { type: string }
+        interestRate: { type: string }
+        termMonths: { type: integer }
+        status:
+          $ref: '#/components/schemas/LoanStatus'
+        disbursedAt: { type: string, format: date-time }
+        dueDate: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    RepaymentStatus:
+      type: string
+      enum: [pending, paid, overdue]
+    Repayment:
+      type: object
+      required:
+        - id
+        - loanId
+        - installmentNumber
+        - amountDue
+        - dueDate
+        - amountPaid
+        - paidAt
+        - status
+        - createdAt
+      properties:
+        id: { type: string }
+        loanId: { type: string }
+        installmentNumber: { type: integer }
+        amountDue: { type: string }
+        dueDate: { type: string }
+        amountPaid: { type: [string, 'null'] }
+        paidAt: { type: [string, 'null'], format: date-time }
+        status:
+          $ref: '#/components/schemas/RepaymentStatus'
+        createdAt: { type: string, format: date-time }
+
+    # ----- Notifications -----
+    NotificationChannel:
+      type: string
+      enum: [sms, email, in_app]
+    NotificationStatus:
+      type: string
+      enum: [sent, pending, failed]
+    Notification:
+      type: object
+      required: [id, userId, channel, title, message, status, read, createdAt]
+      properties:
+        id: { type: string }
+        userId: { type: string }
+        channel:
+          $ref: '#/components/schemas/NotificationChannel'
+        title: { type: string }
+        message: { type: string }
+        status:
+          $ref: '#/components/schemas/NotificationStatus'
+        read: { type: boolean }
+        createdAt: { type: string, format: date-time }
+
+    # ----- Admin -----
+    DashboardStats:
+      type: object
+      required:
+        - totalCustomers
+        - activeLoans
+        - pendingApplications
+        - totalDisbursed
+        - totalOutstanding
+        - overdueRepayments
+        - recentActivity
+      properties:
+        totalCustomers: { type: integer }
+        activeLoans: { type: integer }
+        pendingApplications: { type: integer }
+        totalDisbursed: { type: string }
+        totalOutstanding: { type: string }
+        overdueRepayments: { type: integer }
+        recentActivity:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditLog'
+
+    CustomerSummary:
+      type: object
+      required:
+        - id
+        - email
+        - firstName
+        - lastName
+        - accountStatus
+        - phone
+        - phoneVerified
+        - profileComplete
+        - createdAt
+      properties:
+        id: { type: string }
+        email: { type: [string, 'null'] }
+        firstName: { type: [string, 'null'] }
+        lastName: { type: [string, 'null'] }
+        accountStatus:
+          $ref: '#/components/schemas/AccountStatus'
+        phone: { type: [string, 'null'] }
+        phoneVerified: { type: boolean }
+        profileComplete: { type: boolean }
+        createdAt: { type: string, format: date-time }
+    CustomerDetail:
+      allOf:
+        - $ref: '#/components/schemas/CustomerSummary'
+        - type: object
+          required: [profile, documents, loanApplications, loans]
+          properties:
+            profile:
+              oneOf:
+                - $ref: '#/components/schemas/CustomerProfile'
+                - type: 'null'
+            documents:
+              type: array
+              items:
+                $ref: '#/components/schemas/Document'
+            loanApplications:
+              type: array
+              items:
+                $ref: '#/components/schemas/LoanApplication'
+            loans:
+              type: array
+              items:
+                $ref: '#/components/schemas/Loan'
+    CustomerStatusUpdate:
+      type: object
+      required: [accountStatus]
+      properties:
+        accountStatus:
+          $ref: '#/components/schemas/AccountStatus'
+
+    AuditLog:
+      type: object
+      required: [id, userId, action, entityType, entityId, details, createdAt]
+      properties:
+        id: { type: string }
+        userId: { type: [string, 'null'] }
+        action: { type: string }
+        entityType: { type: string }
+        entityId: { type: [string, 'null'] }
+        details: { type: [string, 'null'] }
+        createdAt: { type: string, format: date-time }
+
+    SystemSetting:
+      type: object
+      required: [key, value, updatedAt]
+      properties:
+        key: { type: string }
+        value: { type: string }
+        updatedAt: { type: string, format: date-time }
+    SystemSettingInput:
+      type: object
+      required: [key, value]
+      properties:
+        key: { type: string, minLength: 1 }
+        value: { type: string }

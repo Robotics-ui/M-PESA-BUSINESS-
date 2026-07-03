@@ -1,0 +1,1 @@
+- [Design subagent scope risk](design-subagent-scope.md) — async DESIGN subagent given a full-app creative brief only did theme/CSS, left pages as placeholders; verify output before trusting full delegation.
