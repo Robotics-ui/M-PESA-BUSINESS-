@@ -44,6 +44,13 @@ export interface AuthUserEnvelope {
   user: AuthUser | null;
 }
 
+export interface AdminLoginInput {
+  /** @minLength 1 */
+  email: string;
+  /** @minLength 1 */
+  password: string;
+}
+
 export interface MobileTokenExchangeRequest {
   /** @minLength 1 */
   code: string;
@@ -104,8 +111,6 @@ export interface CustomerProfile {
   /** @nullable */
   selfieUrl: string | null;
   profileComplete: boolean;
-  approvedLoanAmount: string;
-  loanStatus: 'active' | 'frozen' | 'rejected';
   createdAt: string;
   updatedAt: string;
 }
@@ -155,8 +160,6 @@ export interface OtpRequestInput {
 
 export interface OtpRequestResult {
   message: string;
-  /** The generated OTP, returned directly since no SMS provider is connected yet (foundation phase stub). */
-  devCode: string;
 }
 
 export interface OtpVerifyInput {
@@ -415,71 +418,3 @@ export const ListAllLoanApplicationsStatus = {
   hold: 'hold',
 } as const;
 
-
-// ─── Virtual Cards ─────────────────────────────────────────────────────────
-
-export type VirtualCardStatus = typeof VirtualCardStatus[keyof typeof VirtualCardStatus];
-
-export const VirtualCardStatus = {
-  pending: 'pending',
-  approved: 'approved',
-  rejected: 'rejected',
-} as const;
-
-export interface VirtualCard {
-  id: string;
-  customerId: string;
-  cardNumber: string;
-  cardHolderName: string;
-  bank: string | null;
-  status: VirtualCardStatus;
-  rejectionReason: string | null;
-  approvedBy: string | null;
-  approvedAt: string | null;
-  createdAt: string;
-}
-
-export interface VirtualCardWithCustomer extends VirtualCard {
-  customerName: string;
-  customerEmail: string | null;
-}
-
-export interface VirtualCardInput {
-  cardNumber: string;
-  cardHolderName: string;
-  bank?: string;
-}
-
-export type VirtualCardDecisionStatus = typeof VirtualCardDecisionStatus[keyof typeof VirtualCardDecisionStatus];
-
-export const VirtualCardDecisionStatus = {
-  approved: 'approved',
-  rejected: 'rejected',
-  request_new: 'request_new',
-} as const;
-
-export interface VirtualCardDecision {
-  status: VirtualCardDecisionStatus;
-  rejectionReason?: string;
-}
-
-export interface CustomerLoanAmountUpdate {
-  approvedLoanAmount: number;
-}
-
-export type CustomerLoanStatus = typeof CustomerLoanStatus[keyof typeof CustomerLoanStatus];
-
-export const CustomerLoanStatus = {
-  active: 'active',
-  frozen: 'frozen',
-  rejected: 'rejected',
-} as const;
-
-export interface CustomerLoanStatusUpdate {
-  loanStatus: CustomerLoanStatus;
-}
-
-export interface CustomerLoanInfo {
-  approvedLoanAmount: string;
-  loanStatus: CustomerLoanStatus;
-}

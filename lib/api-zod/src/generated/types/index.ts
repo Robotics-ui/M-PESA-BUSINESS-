@@ -7,6 +7,7 @@
  */
 
 export * from './accountStatus';
+export * from './adminLoginInput';
 export * from './auditLog';
 export * from './authorizationSessionHeaderParameter';
 export * from './authUser';
@@ -53,10 +54,3 @@ export * from './requestUploadUrlResult';
 export * from './systemSetting';
 export * from './systemSettingInput';
 export * from './userRole';
-export * from './virtualCard';
-export * from './virtualCardDecision';
-export * from './virtualCardInput';
-export * from './virtualCardStatus';
-export * from './virtualCardWithCustomer';
-export * from './customerLoanAmountUpdate';
-export * from './customerLoanStatusUpdate';

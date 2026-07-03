@@ -20,6 +20,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  AdminLoginInput,
   AuditLog,
   AuthUserEnvelope,
   BeginBrowserLoginParams,
@@ -482,6 +483,76 @@ export function useLogoutBrowserSession<TData = Awaited<ReturnType<typeof logout
 
 
 
+
+export const getAdminPasswordLoginUrl = () => {
+
+
+
+
+  return `/api/admin/login`
+}
+
+/**
+ * @summary Log in a staff account with email and password
+ */
+export const adminPasswordLogin = async (adminLoginInput: AdminLoginInput, options?: RequestInit): Promise<AuthUserEnvelope> => {
+
+  return customFetch<AuthUserEnvelope>(getAdminPasswordLoginUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(adminLoginInput)
+  }
+);}
+
+
+
+
+export const getAdminPasswordLoginMutationOptions = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof adminPasswordLogin>>, TError,{data: BodyType<AdminLoginInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof adminPasswordLogin>>, TError,{data: BodyType<AdminLoginInput>}, TContext> => {
+
+const mutationKey = ['adminPasswordLogin'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof adminPasswordLogin>>, {data: BodyType<AdminLoginInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  adminPasswordLogin(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AdminPasswordLoginMutationResult = NonNullable<Awaited<ReturnType<typeof adminPasswordLogin>>>
+    export type AdminPasswordLoginMutationBody = BodyType<AdminLoginInput>
+    export type AdminPasswordLoginMutationError = ErrorType<ErrorEnvelope>
+
+    /**
+ * @summary Log in a staff account with email and password
+ */
+export const useAdminPasswordLogin = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof adminPasswordLogin>>, TError,{data: BodyType<AdminLoginInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof adminPasswordLogin>>,
+        TError,
+        {data: BodyType<AdminLoginInput>},
+        TContext
+      > => {
+      return useMutation(getAdminPasswordLoginMutationOptions(options));
+    }
 
 export const getExchangeMobileAuthorizationCodeUrl = () => {
 
@@ -2340,169 +2411,3 @@ export const useUpdateSystemSetting = <TError = ErrorType<unknown>,
       return useMutation(getUpdateSystemSettingMutationOptions(options));
     }
 
-
-// ─── Virtual Card type imports ─────────────────────────────────────────────
-import type {
-  VirtualCard,
-  VirtualCardWithCustomer,
-  VirtualCardInput,
-  VirtualCardDecision,
-  CustomerLoanAmountUpdate,
-  CustomerLoanStatusUpdate,
-  CustomerLoanInfo,
-} from './api.schemas';
-
-// ─── Virtual Cards — Customer ──────────────────────────────────────────────
-
-export const getListMyVirtualCardsUrl = () => `/api/virtual-cards/mine`;
-
-export const listMyVirtualCards = async (options?: RequestInit): Promise<VirtualCard[]> =>
-  customFetch<VirtualCard[]>(getListMyVirtualCardsUrl(), { ...options, method: 'GET' });
-
-export const getListMyVirtualCardsQueryKey = () => [`/api/virtual-cards/mine`] as const;
-
-export const getListMyVirtualCardsQueryOptions = <TData = Awaited<ReturnType<typeof listMyVirtualCards>>, TError = ErrorType<ErrorEnvelope>>(
-  options?: { query?: UseQueryOptions<Awaited<ReturnType<typeof listMyVirtualCards>>, TError, TData>; request?: SecondParameter<typeof customFetch> },
-) => {
-  const { query: queryOptions, request: requestOptions } = options ?? {};
-  const queryKey = queryOptions?.queryKey ?? getListMyVirtualCardsQueryKey();
-  const queryFn: QueryFunction<Awaited<ReturnType<typeof listMyVirtualCards>>> = ({ signal }) =>
-    listMyVirtualCards({ signal, ...requestOptions });
-  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<Awaited<ReturnType<typeof listMyVirtualCards>>, TError, TData> & { queryKey: QueryKey };
-};
-
-export function useListMyVirtualCards<TData = Awaited<ReturnType<typeof listMyVirtualCards>>, TError = ErrorType<ErrorEnvelope>>(
-  options?: { query?: UseQueryOptions<Awaited<ReturnType<typeof listMyVirtualCards>>, TError, TData>; request?: SecondParameter<typeof customFetch> },
-): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getListMyVirtualCardsQueryOptions(options);
-  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & { queryKey: QueryKey };
-  return withQueryKey(query, queryOptions.queryKey);
-}
-
-export const getCreateVirtualCardUrl = () => `/api/virtual-cards`;
-
-export const createVirtualCard = async (data: BodyType<VirtualCardInput>, options?: RequestInit): Promise<VirtualCard> =>
-  customFetch<VirtualCard>(getCreateVirtualCardUrl(), { ...options, method: 'POST', headers: { 'Content-Type': 'application/json', ...options?.headers }, body: JSON.stringify(data) });
-
-export const getCreateVirtualCardMutationOptions = <TError = ErrorType<ErrorEnvelope>, TContext = unknown>(
-  options?: { mutation?: UseMutationOptions<Awaited<ReturnType<typeof createVirtualCard>>, TError, { data: BodyType<VirtualCardInput> }, TContext>; request?: SecondParameter<typeof customFetch> },
-) => {
-  const { mutation: mutationOptions, request: requestOptions } = options ?? {};
-  const mutationFn: MutationFunction<Awaited<ReturnType<typeof createVirtualCard>>, { data: BodyType<VirtualCardInput> }> = (props) => {
-    const { data } = props ?? {};
-    return createVirtualCard(data, requestOptions);
-  };
-  return { mutationFn, ...mutationOptions } as UseMutationOptions<Awaited<ReturnType<typeof createVirtualCard>>, TError, { data: BodyType<VirtualCardInput> }, TContext>;
-};
-
-export function useCreateVirtualCard<TError = ErrorType<ErrorEnvelope>, TContext = unknown>(
-  options?: { mutation?: UseMutationOptions<Awaited<ReturnType<typeof createVirtualCard>>, TError, { data: BodyType<VirtualCardInput> }, TContext>; request?: SecondParameter<typeof customFetch> },
-): UseMutationResult<Awaited<ReturnType<typeof createVirtualCard>>, TError, { data: BodyType<VirtualCardInput> }, TContext> {
-  const mutationOptions = getCreateVirtualCardMutationOptions(options);
-  return useMutation(mutationOptions);
-}
-
-// ─── Virtual Cards — Admin ─────────────────────────────────────────────────
-
-export const getListAllVirtualCardsUrl = (params?: { status?: string }) => {
-  const normalized = new URLSearchParams();
-  if (params?.status) normalized.append('status', params.status);
-  const qs = normalized.toString();
-  return qs.length > 0 ? `/api/admin/virtual-cards?${qs}` : `/api/admin/virtual-cards`;
-};
-
-export const listAllVirtualCards = async (params?: { status?: string }, options?: RequestInit): Promise<VirtualCardWithCustomer[]> =>
-  customFetch<VirtualCardWithCustomer[]>(getListAllVirtualCardsUrl(params), { ...options, method: 'GET' });
-
-export const getListAllVirtualCardsQueryKey = (params?: { status?: string }) => [`/api/admin/virtual-cards`, ...(params ? [params] : [])] as const;
-
-export const getListAllVirtualCardsQueryOptions = <TData = Awaited<ReturnType<typeof listAllVirtualCards>>, TError = ErrorType<ErrorEnvelope>>(
-  params?: { status?: string },
-  options?: { query?: UseQueryOptions<Awaited<ReturnType<typeof listAllVirtualCards>>, TError, TData>; request?: SecondParameter<typeof customFetch> },
-) => {
-  const { query: queryOptions, request: requestOptions } = options ?? {};
-  const queryKey = queryOptions?.queryKey ?? getListAllVirtualCardsQueryKey(params);
-  const queryFn: QueryFunction<Awaited<ReturnType<typeof listAllVirtualCards>>> = ({ signal }) =>
-    listAllVirtualCards(params, { signal, ...requestOptions });
-  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<Awaited<ReturnType<typeof listAllVirtualCards>>, TError, TData> & { queryKey: QueryKey };
-};
-
-export function useListAllVirtualCards<TData = Awaited<ReturnType<typeof listAllVirtualCards>>, TError = ErrorType<ErrorEnvelope>>(
-  params?: { status?: string },
-  options?: { query?: UseQueryOptions<Awaited<ReturnType<typeof listAllVirtualCards>>, TError, TData>; request?: SecondParameter<typeof customFetch> },
-): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getListAllVirtualCardsQueryOptions(params, options);
-  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & { queryKey: QueryKey };
-  return withQueryKey(query, queryOptions.queryKey);
-}
-
-export const getDecideVirtualCardUrl = (id: string) => `/api/admin/virtual-cards/${id}/decision`;
-
-export const decideVirtualCard = async (id: string, data: BodyType<VirtualCardDecision>, options?: RequestInit): Promise<VirtualCard> =>
-  customFetch<VirtualCard>(getDecideVirtualCardUrl(id), { ...options, method: 'PATCH', headers: { 'Content-Type': 'application/json', ...options?.headers }, body: JSON.stringify(data) });
-
-export const getDecideVirtualCardMutationOptions = <TError = ErrorType<ErrorEnvelope>, TContext = unknown>(
-  options?: { mutation?: UseMutationOptions<Awaited<ReturnType<typeof decideVirtualCard>>, TError, { id: string; data: BodyType<VirtualCardDecision> }, TContext>; request?: SecondParameter<typeof customFetch> },
-) => {
-  const { mutation: mutationOptions, request: requestOptions } = options ?? {};
-  const mutationFn: MutationFunction<Awaited<ReturnType<typeof decideVirtualCard>>, { id: string; data: BodyType<VirtualCardDecision> }> = (props) => {
-    const { id, data } = props ?? {};
-    return decideVirtualCard(id, data, requestOptions);
-  };
-  return { mutationFn, ...mutationOptions } as UseMutationOptions<Awaited<ReturnType<typeof decideVirtualCard>>, TError, { id: string; data: BodyType<VirtualCardDecision> }, TContext>;
-};
-
-export function useDecideVirtualCard<TError = ErrorType<ErrorEnvelope>, TContext = unknown>(
-  options?: { mutation?: UseMutationOptions<Awaited<ReturnType<typeof decideVirtualCard>>, TError, { id: string; data: BodyType<VirtualCardDecision> }, TContext>; request?: SecondParameter<typeof customFetch> },
-): UseMutationResult<Awaited<ReturnType<typeof decideVirtualCard>>, TError, { id: string; data: BodyType<VirtualCardDecision> }, TContext> {
-  const mutationOptions = getDecideVirtualCardMutationOptions(options);
-  return useMutation(mutationOptions);
-}
-
-// ─── Customer Loan Amount / Status — Admin ─────────────────────────────────
-
-export const getUpdateCustomerLoanAmountUrl = (id: string) => `/api/admin/customers/${id}/loan-amount`;
-
-export const updateCustomerLoanAmount = async (id: string, data: BodyType<CustomerLoanAmountUpdate>, options?: RequestInit): Promise<CustomerLoanInfo> =>
-  customFetch<CustomerLoanInfo>(getUpdateCustomerLoanAmountUrl(id), { ...options, method: 'PATCH', headers: { 'Content-Type': 'application/json', ...options?.headers }, body: JSON.stringify(data) });
-
-export const getUpdateCustomerLoanAmountMutationOptions = <TError = ErrorType<ErrorEnvelope>, TContext = unknown>(
-  options?: { mutation?: UseMutationOptions<Awaited<ReturnType<typeof updateCustomerLoanAmount>>, TError, { id: string; data: BodyType<CustomerLoanAmountUpdate> }, TContext>; request?: SecondParameter<typeof customFetch> },
-) => {
-  const { mutation: mutationOptions, request: requestOptions } = options ?? {};
-  const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateCustomerLoanAmount>>, { id: string; data: BodyType<CustomerLoanAmountUpdate> }> = (props) => {
-    const { id, data } = props ?? {};
-    return updateCustomerLoanAmount(id, data, requestOptions);
-  };
-  return { mutationFn, ...mutationOptions } as UseMutationOptions<Awaited<ReturnType<typeof updateCustomerLoanAmount>>, TError, { id: string; data: BodyType<CustomerLoanAmountUpdate> }, TContext>;
-};
-
-export function useUpdateCustomerLoanAmount<TError = ErrorType<ErrorEnvelope>, TContext = unknown>(
-  options?: { mutation?: UseMutationOptions<Awaited<ReturnType<typeof updateCustomerLoanAmount>>, TError, { id: string; data: BodyType<CustomerLoanAmountUpdate> }, TContext>; request?: SecondParameter<typeof customFetch> },
-): UseMutationResult<Awaited<ReturnType<typeof updateCustomerLoanAmount>>, TError, { id: string; data: BodyType<CustomerLoanAmountUpdate> }, TContext> {
-  const mutationOptions = getUpdateCustomerLoanAmountMutationOptions(options);
-  return useMutation(mutationOptions);
-}
-
-export const getUpdateCustomerLoanStatusUrl = (id: string) => `/api/admin/customers/${id}/loan-status`;
-
-export const updateCustomerLoanStatus = async (id: string, data: BodyType<CustomerLoanStatusUpdate>, options?: RequestInit): Promise<CustomerLoanInfo> =>
-  customFetch<CustomerLoanInfo>(getUpdateCustomerLoanStatusUrl(id), { ...options, method: 'PATCH', headers: { 'Content-Type': 'application/json', ...options?.headers }, body: JSON.stringify(data) });
-
-export const getUpdateCustomerLoanStatusMutationOptions = <TError = ErrorType<ErrorEnvelope>, TContext = unknown>(
-  options?: { mutation?: UseMutationOptions<Awaited<ReturnType<typeof updateCustomerLoanStatus>>, TError, { id: string; data: BodyType<CustomerLoanStatusUpdate> }, TContext>; request?: SecondParameter<typeof customFetch> },
-) => {
-  const { mutation: mutationOptions, request: requestOptions } = options ?? {};
-  const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateCustomerLoanStatus>>, { id: string; data: BodyType<CustomerLoanStatusUpdate> }> = (props) => {
-    const { id, data } = props ?? {};
-    return updateCustomerLoanStatus(id, data, requestOptions);
-  };
-  return { mutationFn, ...mutationOptions } as UseMutationOptions<Awaited<ReturnType<typeof updateCustomerLoanStatus>>, TError, { id: string; data: BodyType<CustomerLoanStatusUpdate> }, TContext>;
-};
-
-export function useUpdateCustomerLoanStatus<TError = ErrorType<ErrorEnvelope>, TContext = unknown>(
-  options?: { mutation?: UseMutationOptions<Awaited<ReturnType<typeof updateCustomerLoanStatus>>, TError, { id: string; data: BodyType<CustomerLoanStatusUpdate> }, TContext>; request?: SecondParameter<typeof customFetch> },
-): UseMutationResult<Awaited<ReturnType<typeof updateCustomerLoanStatus>>, TError, { id: string; data: BodyType<CustomerLoanStatusUpdate> }, TContext> {
-  const mutationOptions = getUpdateCustomerLoanStatusMutationOptions(options);
-  return useMutation(mutationOptions);
-}

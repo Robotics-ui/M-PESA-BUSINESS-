@@ -70,6 +70,31 @@ export const LogoutBrowserSessionResponse = zod.void()
 
 
 /**
+ * @summary Log in a staff account with email and password
+ */
+
+
+
+
+export const AdminPasswordLoginBody = zod.object({
+  "email": zod.string().email().min(1),
+  "password": zod.string().min(1)
+})
+
+export const AdminPasswordLoginResponse = zod.object({
+  "user": zod.union([zod.object({
+  "id": zod.string(),
+  "email": zod.string().email().nullable(),
+  "firstName": zod.string().nullable(),
+  "lastName": zod.string().nullable(),
+  "profileImageUrl": zod.string().nullable(),
+  "role": zod.enum(['super_admin', 'loan_officer', 'customer']),
+  "accountStatus": zod.enum(['active', 'suspended'])
+}),zod.null()])
+})
+
+
+/**
  * @summary Exchange a mobile OIDC code for a session token
  */
 
@@ -139,8 +164,6 @@ export const GetMyProfileResponse = zod.union([zod.object({
   "idBackUrl": zod.string().nullable(),
   "selfieUrl": zod.string().nullable(),
   "profileComplete": zod.boolean(),
-  "approvedLoanAmount": zod.string(),
-  "loanStatus": zod.enum(["active", "frozen", "rejected"]),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date()
 }),zod.null()])
@@ -173,8 +196,6 @@ export const UpdateMyProfileResponse = zod.object({
   "idBackUrl": zod.string().nullable(),
   "selfieUrl": zod.string().nullable(),
   "profileComplete": zod.boolean(),
-  "approvedLoanAmount": zod.string(),
-  "loanStatus": zod.enum(["active", "frozen", "rejected"]),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date()
 })
@@ -228,7 +249,7 @@ export const RequestPhoneOtpBody = zod.object({
 })
 
 export const RequestPhoneOtpResponse = zod.object({
-  "message": zod.string(),
+  "message": zod.string()
 })
 
 
@@ -473,8 +494,6 @@ export const GetCustomerDetailResponse = zod.object({
   "idBackUrl": zod.string().nullable(),
   "selfieUrl": zod.string().nullable(),
   "profileComplete": zod.boolean(),
-  "approvedLoanAmount": zod.string(),
-  "loanStatus": zod.enum(["active", "frozen", "rejected"]),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date()
 }),zod.null()]),
@@ -642,61 +661,3 @@ export const UpdateSystemSettingResponse = zod.object({
 })
 
 
-
-// ─── Virtual Cards ─────────────────────────────────────────────────────────
-
-const virtualCardShape = {
-  "id": zod.string(),
-  "customerId": zod.string(),
-  "cardNumber": zod.string(),
-  "cardHolderName": zod.string(),
-  "bank": zod.string().nullable(),
-  "status": zod.enum(["pending", "approved", "rejected"]),
-  "rejectionReason": zod.string().nullable(),
-  "approvedBy": zod.string().nullable(),
-  "approvedAt": zod.coerce.date().nullable(),
-  "createdAt": zod.coerce.date(),
-} as const;
-
-export const ListMyVirtualCardsResponse = zod.array(zod.object(virtualCardShape))
-
-export const CreateVirtualCardBody = zod.object({
-  "cardNumber": zod.string().min(1),
-  "cardHolderName": zod.string().min(1),
-  "bank": zod.string().optional(),
-})
-export const CreateVirtualCardResponse = zod.object(virtualCardShape)
-
-export const ListAllVirtualCardsResponseItem = zod.object({
-  ...virtualCardShape,
-  "customerName": zod.string(),
-  "customerEmail": zod.string().nullable(),
-})
-export const ListAllVirtualCardsResponse = zod.array(ListAllVirtualCardsResponseItem)
-
-export const DecideVirtualCardParams = zod.object({ "id": zod.string() })
-export const DecideVirtualCardBody = zod.object({
-  "status": zod.enum(["approved", "rejected", "request_new"]),
-  "rejectionReason": zod.string().optional(),
-})
-export const DecideVirtualCardResponse = zod.object(virtualCardShape)
-
-// ─── Customer Loan Amount / Status (Admin) ─────────────────────────────────
-
-export const UpdateCustomerLoanAmountParams = zod.object({ "id": zod.string() })
-export const UpdateCustomerLoanAmountBody = zod.object({
-  "approvedLoanAmount": zod.number().min(0),
-})
-export const UpdateCustomerLoanAmountResponse = zod.object({
-  "approvedLoanAmount": zod.string(),
-  "loanStatus": zod.enum(["active", "frozen", "rejected"]),
-})
-
-export const UpdateCustomerLoanStatusParams = zod.object({ "id": zod.string() })
-export const UpdateCustomerLoanStatusBody = zod.object({
-  "loanStatus": zod.enum(["active", "frozen", "rejected"]),
-})
-export const UpdateCustomerLoanStatusResponse = zod.object({
-  "approvedLoanAmount": zod.string(),
-  "loanStatus": zod.enum(["active", "frozen", "rejected"]),
-})

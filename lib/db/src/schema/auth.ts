@@ -27,6 +27,7 @@ export const usersTable = pgTable("users", {
   accountStatus: varchar("account_status", { enum: ["active", "suspended"] })
     .notNull()
     .default("active"),
+  passwordHash: varchar("password_hash"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

@@ -106,6 +106,30 @@ paths:
       responses:
         '302':
           description: Redirect to the OIDC provider logout URL.
+  /admin/login:
+    post:
+      tags: [Auth]
+      operationId: adminPasswordLogin
+      summary: Log in a staff account with email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminLoginInput'
+      responses:
+        '200':
+          description: Login successful, session cookie set.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthUserEnvelope'
+        '401':
+          description: Invalid credentials.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
   /mobile-auth/token-exchange:
     post:
       tags: [Auth]
@@ -649,6 +673,17 @@ components:
           oneOf:
             - $ref: '#/components/schemas/AuthUser'
             - type: 'null'
+    AdminLoginInput:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+        password:
+          type: string
+          minLength: 1
     MobileTokenExchangeRequest:
       type: object
       required: [code, code_verifier, redirect_uri, state]
