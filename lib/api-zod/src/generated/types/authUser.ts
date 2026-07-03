@@ -20,4 +20,5 @@ export interface AuthUser {
   profileImageUrl: string | null;
   role: UserRole;
   accountStatus: AccountStatus;
+  mustChangePassword: boolean;
 }

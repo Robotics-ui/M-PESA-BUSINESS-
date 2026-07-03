@@ -11,7 +11,7 @@ tags:
   - name: health
     description: Health operations
   - name: Auth
-    description: Browser and mobile authentication endpoints.
+    description: Email and password authentication endpoints.
   - name: Storage
     description: File upload and object serving endpoints.
   - name: Profile
@@ -59,68 +59,41 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AuthUserEnvelope'
-  /login:
-    get:
-      tags: [Auth]
-      operationId: beginBrowserLogin
-      summary: Start the browser OIDC login flow
-      parameters:
-        - name: returnTo
-          in: query
-          required: false
-          description: Relative path to redirect to after login (must start with `/`). Defaults to `/`.
-          schema:
-            type: string
-      responses:
-        '302':
-          description: Redirect to the OIDC authorization endpoint.
-  /callback:
-    get:
-      tags: [Auth]
-      operationId: handleBrowserLoginCallback
-      summary: Complete the browser OIDC login flow
-      parameters:
-        - name: code
-          in: query
-          required: false
-          schema:
-            type: string
-        - name: state
-          in: query
-          required: false
-          schema:
-            type: string
-        - name: iss
-          in: query
-          required: false
-          schema:
-            type: string
-            format: uri
-      responses:
-        '302':
-          description: Redirect to the `returnTo` path on success (defaults to `/`) or `/api/login` on failure.
-  /logout:
-    get:
-      tags: [Auth]
-      operationId: logoutBrowserSession
-      summary: Clear the session and begin OIDC logout
-      parameters:
-        - $ref: '#/components/parameters/AuthorizationSessionHeader'
-        - $ref: '#/components/parameters/SessionCookie'
-      responses:
-        '302':
-          description: Redirect to the OIDC provider logout URL.
-  /admin/login:
+  /auth/signup:
     post:
       tags: [Auth]
-      operationId: adminPasswordLogin
-      summary: Log in a staff account with email and password
+      operationId: signUp
+      summary: Create a new customer account with email and password
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/AdminLoginInput'
+              $ref: '#/components/schemas/SignupInput'
+      responses:
+        '200':
+          description: Account created, session cookie set.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthUserEnvelope'
+        '409':
+          description: An account with this email already exists.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /auth/login:
+    post:
+      tags: [Auth]
+      operationId: logIn
+      summary: Log in with email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginInput'
       responses:
         '200':
           description: Login successful, session cookie set.
@@ -134,49 +107,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
-  /mobile-auth/token-exchange:
+  /logout:
     post:
       tags: [Auth]
-      operationId: exchangeMobileAuthorizationCode
-      summary: Exchange a mobile OIDC code for a session token
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/MobileTokenExchangeRequest'
-      responses:
-        '200':
-          description: Session created successfully.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MobileTokenExchangeSuccess'
-        '400':
-          description: Missing or invalid required fields.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-        '401':
-          description: Token did not contain usable claims.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-        '500':
-          description: Token exchange failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-  /mobile-auth/logout:
-    post:
-      tags: [Auth]
-      operationId: logoutMobileSession
-      summary: Delete a mobile session token
+      operationId: logoutBrowserSession
+      summary: Clear the current session
       parameters:
         - $ref: '#/components/parameters/AuthorizationSessionHeader'
+        - $ref: '#/components/parameters/SessionCookie'
       responses:
         '200':
           description: Logout processed.
@@ -184,6 +122,30 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/LogoutSuccess'
+  /auth/change-password:
+    post:
+      tags: [Auth]
+      operationId: changeMyPassword
+      summary: Change the current user's password (also clears any temporary-password flag)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordInput'
+      responses:
+        '200':
+          description: Password changed successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthUserEnvelope'
+        '401':
+          description: Not authenticated or current password incorrect.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
 
   # ---------- Storage ----------
   /storage/uploads/request-url:
@@ -862,7 +824,7 @@ components:
     # ----- Auth -----
     AuthUser:
       type: object
-      required: [id, email, firstName, lastName, profileImageUrl, role, accountStatus]
+      required: [id, email, firstName, lastName, profileImageUrl, role, accountStatus, mustChangePassword]
       properties:
         id:
           type: string
@@ -879,6 +841,8 @@ components:
           $ref: '#/components/schemas/UserRole'
         accountStatus:
           $ref: '#/components/schemas/AccountStatus'
+        mustChangePassword:
+          type: boolean
     AuthUserEnvelope:
       type: object
       required: [user]
@@ -887,7 +851,24 @@ components:
           oneOf:
             - $ref: '#/components/schemas/AuthUser'
             - type: 'null'
-    AdminLoginInput:
+    SignupInput:
+      type: object
+      required: [email, password, firstName, lastName]
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+        password:
+          type: string
+          minLength: 8
+        firstName:
+          type: string
+          minLength: 1
+        lastName:
+          type: string
+          minLength: 1
+    LoginInput:
       type: object
       required: [email, password]
       properties:
@@ -898,32 +879,16 @@ components:
         password:
           type: string
           minLength: 1
-    MobileTokenExchangeRequest:
+    ChangePasswordInput:
       type: object
-      required: [code, code_verifier, redirect_uri, state]
+      required: [currentPassword, newPassword]
       properties:
-        code:
+        currentPassword:
           type: string
           minLength: 1
-        code_verifier:
+        newPassword:
           type: string
-          minLength: 1
-        redirect_uri:
-          type: string
-          minLength: 1
-          format: uri
-        state:
-          type: string
-          minLength: 1
-        nonce:
-          type: string
-          minLength: 1
-    MobileTokenExchangeSuccess:
-      type: object
-      required: [token]
-      properties:
-        token:
-          type: string
+          minLength: 8
     LogoutSuccess:
       type: object
       required: [success]

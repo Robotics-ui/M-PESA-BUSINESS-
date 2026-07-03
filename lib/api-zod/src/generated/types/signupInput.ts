@@ -6,9 +6,13 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface AdminLoginInput {
+export interface SignupInput {
   /** @minLength 1 */
   email: string;
-  /** @minLength 1 */
+  /** @minLength 8 */
   password: string;
+  /** @minLength 1 */
+  firstName: string;
+  /** @minLength 1 */
+  lastName: string;
 }

@@ -6,6 +6,7 @@ import { useAuth } from "@workspace/replit-auth-web";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/Landing";
 import Suspended from "@/pages/Suspended";
+import ChangePassword from "@/pages/ChangePassword";
 import { AppShell } from "@/components/AppShell";
 
 import CustomerDashboard from "@/pages/customer/Dashboard";
@@ -94,6 +95,10 @@ function AppRoutes() {
 
   if (user.accountStatus === "suspended") {
     return <Suspended />;
+  }
+
+  if (user.mustChangePassword) {
+    return <ChangePassword />;
   }
 
   if (user.role === "super_admin" || user.role === "loan_officer") {

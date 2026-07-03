@@ -32,56 +32,30 @@ export const GetCurrentAuthUserResponse = zod.object({
   "lastName": zod.string().nullable(),
   "profileImageUrl": zod.string().nullable(),
   "role": zod.enum(['super_admin', 'loan_officer', 'customer']),
-  "accountStatus": zod.enum(['active', 'suspended'])
+  "accountStatus": zod.enum(['active', 'suspended']),
+  "mustChangePassword": zod.boolean()
 }),zod.null()])
 })
 
 
 /**
- * @summary Start the browser OIDC login flow
- */
-export const BeginBrowserLoginQueryParams = zod.object({
-  "returnTo": zod.coerce.string().optional().describe('Relative path to redirect to after login (must start with `\/`). Defaults to `\/`.')
-})
-
-export const BeginBrowserLoginResponse = zod.void()
-
-
-/**
- * @summary Complete the browser OIDC login flow
- */
-export const HandleBrowserLoginCallbackQueryParams = zod.object({
-  "code": zod.coerce.string().optional(),
-  "state": zod.coerce.string().optional(),
-  "iss": zod.coerce.string().url().optional()
-})
-
-export const HandleBrowserLoginCallbackResponse = zod.void()
-
-
-/**
- * @summary Clear the session and begin OIDC logout
- */
-export const LogoutBrowserSessionHeader = zod.object({
-  "Authorization": zod.string().optional().describe('Opaque session token — `Bearer <sid>`.')
-})
-
-export const LogoutBrowserSessionResponse = zod.void()
-
-
-/**
- * @summary Log in a staff account with email and password
+ * @summary Create a new customer account with email and password
  */
 
+export const signUpBodyPasswordMin = 8;
 
 
 
-export const AdminPasswordLoginBody = zod.object({
+
+
+export const SignUpBody = zod.object({
   "email": zod.string().email().min(1),
-  "password": zod.string().min(1)
+  "password": zod.string().min(signUpBodyPasswordMin),
+  "firstName": zod.string().min(1),
+  "lastName": zod.string().min(1)
 })
 
-export const AdminPasswordLoginResponse = zod.object({
+export const SignUpResponse = zod.object({
   "user": zod.union([zod.object({
   "id": zod.string(),
   "email": zod.string().email().nullable(),
@@ -89,43 +63,74 @@ export const AdminPasswordLoginResponse = zod.object({
   "lastName": zod.string().nullable(),
   "profileImageUrl": zod.string().nullable(),
   "role": zod.enum(['super_admin', 'loan_officer', 'customer']),
-  "accountStatus": zod.enum(['active', 'suspended'])
+  "accountStatus": zod.enum(['active', 'suspended']),
+  "mustChangePassword": zod.boolean()
 }),zod.null()])
 })
 
 
 /**
- * @summary Exchange a mobile OIDC code for a session token
+ * @summary Log in with email and password
  */
 
 
 
 
-
-
-
-export const ExchangeMobileAuthorizationCodeBody = zod.object({
-  "code": zod.string().min(1),
-  "code_verifier": zod.string().min(1),
-  "redirect_uri": zod.string().url().min(1),
-  "state": zod.string().min(1),
-  "nonce": zod.string().min(1).optional()
+export const LogInBody = zod.object({
+  "email": zod.string().email().min(1),
+  "password": zod.string().min(1)
 })
 
-export const ExchangeMobileAuthorizationCodeResponse = zod.object({
-  "token": zod.string()
+export const LogInResponse = zod.object({
+  "user": zod.union([zod.object({
+  "id": zod.string(),
+  "email": zod.string().email().nullable(),
+  "firstName": zod.string().nullable(),
+  "lastName": zod.string().nullable(),
+  "profileImageUrl": zod.string().nullable(),
+  "role": zod.enum(['super_admin', 'loan_officer', 'customer']),
+  "accountStatus": zod.enum(['active', 'suspended']),
+  "mustChangePassword": zod.boolean()
+}),zod.null()])
 })
 
 
 /**
- * @summary Delete a mobile session token
+ * @summary Clear the current session
  */
-export const LogoutMobileSessionHeader = zod.object({
+export const LogoutBrowserSessionHeader = zod.object({
   "Authorization": zod.string().optional().describe('Opaque session token — `Bearer <sid>`.')
 })
 
-export const LogoutMobileSessionResponse = zod.object({
+export const LogoutBrowserSessionResponse = zod.object({
   "success": zod.boolean()
+})
+
+
+/**
+ * @summary Change the current user's password (also clears any temporary-password flag)
+ */
+
+export const changeMyPasswordBodyNewPasswordMin = 8;
+
+
+
+export const ChangeMyPasswordBody = zod.object({
+  "currentPassword": zod.string().min(1),
+  "newPassword": zod.string().min(changeMyPasswordBodyNewPasswordMin)
+})
+
+export const ChangeMyPasswordResponse = zod.object({
+  "user": zod.union([zod.object({
+  "id": zod.string(),
+  "email": zod.string().email().nullable(),
+  "firstName": zod.string().nullable(),
+  "lastName": zod.string().nullable(),
+  "profileImageUrl": zod.string().nullable(),
+  "role": zod.enum(['super_admin', 'loan_officer', 'customer']),
+  "accountStatus": zod.enum(['active', 'suspended']),
+  "mustChangePassword": zod.boolean()
+}),zod.null()])
 })
 
 

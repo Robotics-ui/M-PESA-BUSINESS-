@@ -38,34 +38,36 @@ export interface AuthUser {
   profileImageUrl: string | null;
   role: UserRole;
   accountStatus: AccountStatus;
+  mustChangePassword: boolean;
 }
 
 export interface AuthUserEnvelope {
   user: AuthUser | null;
 }
 
-export interface AdminLoginInput {
+export interface SignupInput {
+  /** @minLength 1 */
+  email: string;
+  /** @minLength 8 */
+  password: string;
+  /** @minLength 1 */
+  firstName: string;
+  /** @minLength 1 */
+  lastName: string;
+}
+
+export interface LoginInput {
   /** @minLength 1 */
   email: string;
   /** @minLength 1 */
   password: string;
 }
 
-export interface MobileTokenExchangeRequest {
+export interface ChangePasswordInput {
   /** @minLength 1 */
-  code: string;
-  /** @minLength 1 */
-  code_verifier: string;
-  /** @minLength 1 */
-  redirect_uri: string;
-  /** @minLength 1 */
-  state: string;
-  /** @minLength 1 */
-  nonce?: string;
-}
-
-export interface MobileTokenExchangeSuccess {
-  token: string;
+  currentPassword: string;
+  /** @minLength 8 */
+  newPassword: string;
 }
 
 export const LogoutSuccessValue = {
@@ -507,19 +509,6 @@ export interface SystemSettingInput {
  * Opaque session token — `Bearer <sid>`.
  */
 export type AuthorizationSessionHeaderParameter = string;
-
-export type BeginBrowserLoginParams = {
-/**
- * Relative path to redirect to after login (must start with `/`). Defaults to `/`.
- */
-returnTo?: string;
-};
-
-export type HandleBrowserLoginCallbackParams = {
-code?: string;
-state?: string;
-iss?: string;
-};
 
 export type ListCustomersParams = {
 status?: ListCustomersStatus;
