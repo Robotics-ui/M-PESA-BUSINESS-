@@ -45,6 +45,13 @@ import {
 
 const router: IRouter = Router();
 
+/** Mask a card number, showing only the last 4 digits. */
+function maskCardNumber(raw: string): string {
+  const digits = raw.replace(/\D/g, "");
+  const last4 = digits.slice(-4);
+  return `•••• •••• •••• ${last4}`;
+}
+
 function requireStaff(req: Request, res: Response): boolean {
   if (!req.isAuthenticated()) {
     res.status(401).json({ error: "Unauthorized" });
@@ -603,7 +610,8 @@ router.get(
       )
       .orderBy(desc(virtualCardsTable.createdAt));
 
-    res.json(ListAllVirtualCardsResponse.parse(cards));
+    const masked = cards.map((c) => ({ ...c, cardNumber: maskCardNumber(c.cardNumber) }));
+    res.json(ListAllVirtualCardsResponse.parse(masked));
   },
 );
 

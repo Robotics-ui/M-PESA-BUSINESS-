@@ -1,61 +1,60 @@
 # M-PESA Business Loans
 
-A role-based loan management system for small business owners in Kenya to apply for, track, and repay working-capital loans, with staff tools for reviewing applications and managing customers.
-
-## Run & Operate
-
-- `pnpm --filter @workspace/api-server run dev` — run the API server
-- `pnpm --filter @workspace/mpesa-business-loans run dev` — run the web frontend
-- `pnpm run typecheck` — full typecheck across all packages
-- `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- `pnpm --filter @workspace/scripts run promote-user <email> <super_admin|loan_officer|customer>` — promote a user to a role after their first login via Replit Auth
-- Required env: `DATABASE_URL` — Postgres connection string
+A role-based loan management system for Kenyan small businesses. Customers apply for working-capital loans; loan officers review applications; super-admins manage the platform.
 
 ## Stack
 
-- pnpm workspaces, Node.js 24, TypeScript 5.9
-- API: Express 5, session auth via Replit Auth (OIDC)
-- DB: PostgreSQL + Drizzle ORM
-- Validation: Zod (`zod/v4`), `drizzle-zod`
-- API codegen: Orval (from OpenAPI spec) → React Query hooks in `@workspace/api-client-react`
-- Frontend: React + Vite, wouter routing, shadcn/ui, Tailwind
-- Object storage: Replit App Storage for ID photos, selfies, supporting documents
-- Build: esbuild (CJS bundle)
+| Layer | Technology |
+|---|---|
+| Frontend | React 19, Vite 7, `wouter`, shadcn/ui, Tailwind CSS |
+| Backend | Express 5 (Node 24) |
+| Database | PostgreSQL (Replit-managed) via Drizzle ORM |
+| Auth | Replit Auth (OIDC, `passport-replit-auth`) + email/password fallback |
+| Storage | Replit App Storage (document uploads) |
+| API contract | OpenAPI spec → Orval-generated React Query hooks |
 
-## Where things live
+## Monorepo layout
 
-- `lib/api-spec/openapi.yaml` — source of truth for the API contract (schemas, routes)
-- `artifacts/api-server/src/routes/` — Express route handlers (auth, profile, loans, admin, notifications, storage)
-- `artifacts/api-server/src/middlewares/authMiddleware.ts` — role/session guards
-- `artifacts/mpesa-business-loans/src/App.tsx` — role-based routing (customer vs. staff vs. suspended vs. landing)
-- `artifacts/mpesa-business-loans/src/pages/customer/` and `/admin/` — feature pages
-- `lib/replit-auth-web/src/use-auth.ts` — shared `useAuth()` hook (user, isAuthenticated, login, logout)
-- `lib/object-storage-web/` — `ObjectUploader` / `useUpload` for presigned uploads
-- `scripts/src/promote-user.ts` — CLI to assign a role to a user by email
+```
+artifacts/api-server/        Express API (port 8080 in dev)
+artifacts/mpesa-business-loans/  React frontend (port 22025 in dev)
+lib/db/                      Drizzle schema + migrations
+lib/api-spec/                openapi.yaml (source of truth)
+lib/api-zod/                 Generated Zod schemas (from openapi.yaml)
+lib/replit-auth-web/         Shared Replit Auth React hook
+scripts/                     CLI utilities (promote-user, etc.)
+```
 
-## Architecture decisions
+## Running locally
 
-- Auth is Replit Auth only (OIDC) — there is no separate register/login form. New users default to the `customer` role; staff roles are granted via the `promote-user` script after first login.
-- OTP phone verification is stubbed: `useRequestPhoneOtp` returns the code directly in `devCode` since no SMS provider is connected yet (Phase 1 foundation, by design).
-- No automated credit scoring — loan approve/reject/hold decisions are manual, made by staff with optional review notes.
-- Document/photo uploads use a two-step presigned URL flow (`useRequestUploadUrl` + direct PUT), not proxied through the API server.
+```bash
+pnpm install                          # install all workspace deps
+pnpm --filter @workspace/db push      # sync DB schema
+# start both servers (two terminals or via Replit workflows):
+pnpm --filter @workspace/api-server dev
+pnpm --filter @workspace/mpesa-business-loans dev
+```
 
-## Product
+## First-time admin setup
 
-- **Customers**: register/verify phone via OTP, complete profile (ID front/back, selfie, supporting docs), apply for loans, track application status, view repayment schedules, manage notifications.
-- **Staff (loan officers, super admin)**: dashboard with portfolio stats, customer management (suspend/activate), loan application review (approve/reject/hold with notes), audit log, system settings (super admin only).
+On first startup, the API server creates a super-admin account and writes credentials to `admin-credentials.txt` in the project root. Sign in, change the password, and delete the file.
+
+To promote any signed-in user to a different role:
+
+```bash
+pnpm --filter @workspace/scripts promote-user <email> <role>
+# role: super_admin | loan_officer | customer
+```
+
+## Regenerating API types
+
+After editing `lib/api-spec/openapi.yaml`:
+
+```bash
+pnpm --filter @workspace/api-spec codegen
+```
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
-
-## Gotchas
-
-- Always run `pnpm run typecheck` after touching `lib/api-spec/openapi.yaml` or regenerating with Orval — schema changes ripple into both the API server and the generated React Query hooks.
-- A user must log in once via Replit Auth before `promote-user` can find their row to promote them to `loan_officer`/`super_admin`.
-
-## Pointers
-
-- See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details
+- Keep the project's existing pnpm monorepo structure.
+- Do not restructure or migrate the codebase unless explicitly asked.

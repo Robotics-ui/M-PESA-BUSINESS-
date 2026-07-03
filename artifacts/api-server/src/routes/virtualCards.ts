@@ -15,6 +15,13 @@ import {
 
 const router: IRouter = Router();
 
+/** Mask a card number, showing only the last 4 digits: e.g. "•••• •••• •••• 1234" */
+function maskCardNumber(raw: string): string {
+  const digits = raw.replace(/\D/g, "");
+  const last4 = digits.slice(-4);
+  return `•••• •••• •••• ${last4}`;
+}
+
 function requireAuth(req: Request, res: Response): boolean {
   if (!req.isAuthenticated()) {
     res.status(401).json({ error: "Unauthorized" });
@@ -40,7 +47,8 @@ router.get("/virtual-cards/mine", async (req: Request, res: Response): Promise<v
     .where(eq(virtualCardsTable.customerId, req.user!.id))
     .orderBy(desc(virtualCardsTable.createdAt));
 
-  res.json(ListMyVirtualCardsResponse.parse(cards));
+  const masked = cards.map((c) => ({ ...c, cardNumber: maskCardNumber(c.cardNumber) }));
+  res.json(ListMyVirtualCardsResponse.parse(masked));
 });
 
 /**
@@ -69,7 +77,7 @@ router.post("/virtual-cards", async (req: Request, res: Response): Promise<void>
     details: null,
   });
 
-  res.status(201).json(CreateVirtualCardResponse.parse(card));
+  res.status(201).json(CreateVirtualCardResponse.parse({ ...card, cardNumber: maskCardNumber(card.cardNumber) }));
 });
 
 export default router;

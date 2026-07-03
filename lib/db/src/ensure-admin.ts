@@ -1,4 +1,6 @@
 import crypto from "crypto";
+import fs from "fs";
+import path from "path";
 import { eq } from "drizzle-orm";
 import { db } from "./index";
 import { usersTable } from "./schema";
@@ -38,10 +40,25 @@ export async function ensureAdminAccount(
     mustChangePassword: true,
   });
 
-  const message = `Created super admin account — email: ${email}, temporary password: ${temporaryPassword} (must be changed on first login)`;
+  // Write credentials to a local file rather than app logs to avoid plaintext
+  // credential exposure in log aggregation pipelines.
+  const credFile = path.resolve(process.cwd(), "admin-credentials.txt");
+  const credContents = [
+    "M-PESA Business Loans — Super Admin Credentials",
+    "================================================",
+    `Email:              ${email}`,
+    `Temporary password: ${temporaryPassword}`,
+    "",
+    "You MUST change this password on first login.",
+    "Delete this file after you have signed in.",
+    `Generated at: ${new Date().toISOString()}`,
+  ].join("\n");
+  fs.writeFileSync(credFile, credContents, { mode: 0o600 });
+
+  const safeMessage = `Created super admin account — email: ${email}. Temporary password written to admin-credentials.txt (must be changed on first login).`;
   if (logger) {
-    logger.info({ email }, message);
+    logger.info({ email }, safeMessage);
   } else {
-    console.log(message);
+    console.log(safeMessage);
   }
 }
