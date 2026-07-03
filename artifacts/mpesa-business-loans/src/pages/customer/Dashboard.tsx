@@ -130,7 +130,8 @@ export default function Dashboard() {
   const latestCard = cards?.[0];
 
   const approvedAmount = Number(profile?.approvedLoanAmount ?? "0");
-  const cardApproved = latestCard?.status === "approved";
+  // Check *any* approved card, not just the most recent — backend searches all approved cards
+  const cardApproved = cards?.some((c) => c.status === "approved") ?? false;
   const loanActive = profile?.loanStatus === "active";
   const canWithdraw = approvedAmount > 0 && cardApproved && loanActive;
 
@@ -292,10 +293,29 @@ export default function Dashboard() {
               <div className="mt-2">
                 <StatusBadge status={latestApplication.status} />
               </div>
-              {latestApplication.status === "approved" && (
-                <p className="text-xs text-green-700 mt-2">
-                  Next step: {latestApplication.reviewNotes || "add and verify your virtual card, then withdraw your funds."}
-                </p>
+              {latestApplication.status === "approved" && canWithdraw && (
+                <div className="mt-3 space-y-2">
+                  <p className="text-xs text-green-700">
+                    Your loan is approved and ready. Withdraw your funds now.
+                  </p>
+                  <Link href="/withdraw">
+                    <Button size="sm" className="w-full" data-testid="button-withdraw-from-app">
+                      Withdraw now <ArrowRight className="h-3 w-3 ml-1" />
+                    </Button>
+                  </Link>
+                </div>
+              )}
+              {latestApplication.status === "approved" && !canWithdraw && !cardApproved && (
+                <div className="mt-3 space-y-2">
+                  <p className="text-xs text-yellow-700">
+                    Loan approved — get your virtual card verified to unlock withdrawal.
+                  </p>
+                  <Link href="/virtual-card">
+                    <Button size="sm" variant="outline" className="w-full text-xs">
+                      Manage virtual card <ArrowRight className="h-3 w-3 ml-1" />
+                    </Button>
+                  </Link>
+                </div>
               )}
               {latestApplication.status === "rejected" && latestApplication.reviewNotes && (
                 <p className="text-xs text-red-700 mt-2">Reason: {latestApplication.reviewNotes}</p>

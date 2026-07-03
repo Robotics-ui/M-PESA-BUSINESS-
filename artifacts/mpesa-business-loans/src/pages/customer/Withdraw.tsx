@@ -8,6 +8,8 @@ import {
   useRequestWithdrawalOtp,
   useVerifyWithdrawalOtp,
   useVerifyWithdrawalCard,
+  useListMyNotifications,
+  useListMyVirtualCards,
   getListMyWithdrawalsQueryKey,
 } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, formatDateTime } from "@/lib/format";
 import {
@@ -27,7 +30,55 @@ import {
   Wallet,
   ArrowRight,
   ShieldCheck,
+  Bell,
 } from "lucide-react";
+
+// ── Step progress bar ─────────────────────────────────────────────────────────
+const STEPS = [
+  { key: "phone", label: "Enter number", icon: Smartphone },
+  { key: "otp", label: "Verify number", icon: ShieldCheck },
+  { key: "verify", label: "Confirm card", icon: CreditCard },
+  { key: "success", label: "Done", icon: CheckCircle2 },
+] as const;
+
+function StepProgress({ current }: { current: string }) {
+  const stepIndex = STEPS.findIndex((s) => s.key === current);
+  if (stepIndex < 0) return null;
+  return (
+    <div className="flex items-center gap-0 mb-6">
+      {STEPS.map((step, idx) => {
+        const done = idx < stepIndex;
+        const active = idx === stepIndex;
+        const Icon = step.icon;
+        return (
+          <div key={step.key} className="flex items-center flex-1 last:flex-none">
+            <div className="flex flex-col items-center gap-1 min-w-0">
+              <div
+                className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 transition-colors ${
+                  done
+                    ? "bg-primary text-primary-foreground"
+                    : active
+                      ? "bg-primary/10 border-2 border-primary text-primary"
+                      : "bg-muted text-muted-foreground"
+                }`}
+              >
+                {done ? <CheckCircle2 className="h-4 w-4" /> : <Icon className="h-4 w-4" />}
+              </div>
+              <span
+                className={`text-[10px] leading-tight text-center whitespace-nowrap ${active ? "text-primary font-semibold" : done ? "text-foreground" : "text-muted-foreground"}`}
+              >
+                {step.label}
+              </span>
+            </div>
+            {idx < STEPS.length - 1 && (
+              <div className={`h-0.5 flex-1 mx-1 mb-4 rounded ${done ? "bg-primary" : "bg-border"}`} />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 type Step = "loading" | "phone" | "otp" | "verify" | "success" | "locked" | "error";
 
@@ -55,6 +106,21 @@ export default function Withdraw() {
 
   const { data: profile, isLoading: profileLoading } = useGetMyProfile();
   const { data: withdrawals, isLoading: withdrawalsLoading } = useListMyWithdrawals();
+  const { data: notifications } = useListMyNotifications();
+  const { data: cards } = useListMyVirtualCards();
+
+  // Latest in-app OTP notification scoped to the current withdrawal's phone number
+  const latestOtpNotification = notifications
+    ?.filter(
+      (n) =>
+        n.title === "Your withdrawal verification code" &&
+        // Match the phone used for this withdrawal so stale notifications aren't shown
+        (!displayPhone || n.message.includes(displayPhone)),
+    )
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+
+  // Approved virtual card to show context on the card step (API returns masked number)
+  const approvedCard = cards?.find((c) => c.status === "approved");
 
   // Determine initial step from existing withdrawal state
   useEffect(() => {
@@ -293,6 +359,7 @@ export default function Withdraw() {
             Add or confirm the Safaricom (M-Pesa) number you want your funds sent to.
           </p>
         </div>
+        <StepProgress current="phone" />
 
         <Card>
           <CardContent className="pt-6 pb-4">
@@ -368,10 +435,27 @@ export default function Withdraw() {
           </button>
           <h1 className="text-2xl font-semibold text-foreground">Verify your number</h1>
           <p className="text-muted-foreground mt-1">
-            Enter the code sent to your in-app notifications to confirm{" "}
+            Enter the 6-digit code sent to your in-app notifications to confirm{" "}
             <span className="font-mono font-medium">{displayPhone}</span>.
           </p>
         </div>
+
+        <StepProgress current="otp" />
+
+        {/* Inline OTP notification display */}
+        {latestOtpNotification && (
+          <Card className="border-blue-200 bg-blue-50">
+            <CardContent className="pt-4 pb-4">
+              <div className="flex items-start gap-3">
+                <Bell className="h-4 w-4 text-blue-600 mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-xs font-semibold text-blue-800 mb-0.5">{latestOtpNotification.title}</p>
+                  <p className="text-sm text-blue-900">{latestOtpNotification.message}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardHeader className="pb-2">
@@ -392,9 +476,12 @@ export default function Withdraw() {
                   autoComplete="one-time-code"
                   required
                 />
-                <p className="text-xs text-muted-foreground">
-                  Check your notifications bell for the code — it expires in 10 minutes.
-                </p>
+                {!latestOtpNotification && (
+                  <p className="text-xs text-muted-foreground">
+                    The code appears in the notification above — check your{" "}
+                    <span className="font-medium">bell icon</span> if not yet visible.
+                  </p>
+                )}
               </div>
 
               {otpError && (
@@ -433,11 +520,13 @@ export default function Withdraw() {
   return (
     <div className="max-w-md space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-foreground">Verify your card</h1>
+        <h1 className="text-2xl font-semibold text-foreground">Confirm your card</h1>
         <p className="text-muted-foreground mt-1">
-          Enter your admin-approved virtual card number to confirm the withdrawal.
+          Enter your admin-approved virtual card number exactly as you registered it to authorise the withdrawal.
         </p>
       </div>
+
+      <StepProgress current="verify" />
 
       {/* Summary reminder */}
       <Card className="bg-muted/40">
@@ -459,6 +548,30 @@ export default function Withdraw() {
         </CardContent>
       </Card>
 
+      {/* Approved card hint */}
+      {approvedCard && (
+        <Card className="border-green-200 bg-green-50">
+          <CardContent className="pt-4 pb-4">
+            <div className="flex items-center gap-3">
+              <CreditCard className="h-5 w-5 text-green-700 shrink-0" />
+              <div>
+                <p className="text-xs font-semibold text-green-800 mb-0.5 flex items-center gap-2">
+                  Your approved card
+                  <Badge className="bg-green-100 text-green-700 border-green-200 text-[10px] py-0">Approved</Badge>
+                </p>
+                <p className="text-sm text-green-900 font-medium">{approvedCard.cardHolderName}</p>
+                {approvedCard.bank && (
+                  <p className="text-xs text-green-700 mt-0.5">{approvedCard.bank}</p>
+                )}
+              </div>
+            </div>
+            <p className="text-xs text-green-700 mt-3">
+              Enter the card number <span className="font-semibold">exactly as you typed it</span> when you registered this card.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base flex items-center gap-2">
@@ -477,9 +590,6 @@ export default function Withdraw() {
                 autoComplete="off"
                 required
               />
-              <p className="text-xs text-muted-foreground">
-                Enter the card number exactly as it appears on your admin-approved virtual card.
-              </p>
             </div>
 
             {verifyError && (
@@ -489,7 +599,7 @@ export default function Withdraw() {
               </div>
             )}
 
-            {attemptsLeft > 0 && attemptsLeft < 3 && !verifyError && (
+            {attemptsLeft > 0 && attemptsLeft < 3 && (
               <p className="text-xs text-yellow-600">
                 {attemptsLeft} attempt{attemptsLeft === 1 ? "" : "s"} remaining before the
                 withdrawal is locked.
