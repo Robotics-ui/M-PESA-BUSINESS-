@@ -14,6 +14,7 @@ import CustomerApply from "@/pages/customer/Apply";
 import CustomerLoans from "@/pages/customer/Loans";
 import CustomerLoanDetail from "@/pages/customer/LoanDetail";
 import CustomerNotifications from "@/pages/customer/Notifications";
+import CustomerVirtualCard from "@/pages/customer/VirtualCard";
 
 import AdminDashboard from "@/pages/admin/Dashboard";
 import AdminCustomers from "@/pages/admin/Customers";
@@ -21,6 +22,7 @@ import AdminCustomerDetail from "@/pages/admin/CustomerDetail";
 import AdminLoans from "@/pages/admin/Loans";
 import AdminAuditLogs from "@/pages/admin/AuditLogs";
 import AdminSettings from "@/pages/admin/Settings";
+import AdminVirtualCards from "@/pages/admin/VirtualCards";
 
 const queryClient = new QueryClient();
 
@@ -42,6 +44,7 @@ function CustomerRoutes() {
         <Route path="/loans" component={CustomerLoans} />
         <Route path="/loans/:id" component={CustomerLoanDetail} />
         <Route path="/notifications" component={CustomerNotifications} />
+        <Route path="/virtual-card" component={CustomerVirtualCard} />
         <Route path="/">
           <Redirect to="/dashboard" />
         </Route>
@@ -59,6 +62,7 @@ function StaffRoutes({ isSuperAdmin }: { isSuperAdmin: boolean }) {
         <Route path="/admin/customers" component={AdminCustomers} />
         <Route path="/admin/customers/:id" component={AdminCustomerDetail} />
         <Route path="/admin/loans" component={AdminLoans} />
+        <Route path="/admin/virtual-cards" component={AdminVirtualCards} />
         <Route path="/admin/audit-logs" component={AdminAuditLogs} />
         {isSuperAdmin && <Route path="/admin/settings" component={AdminSettings} />}
         <Route path="/">

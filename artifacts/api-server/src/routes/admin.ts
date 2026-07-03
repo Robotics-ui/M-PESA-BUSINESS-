@@ -10,6 +10,7 @@ import {
   auditLogsTable,
   systemSettingsTable,
   notificationsTable,
+  virtualCardsTable,
 } from "@workspace/db";
 import {
   GetAdminDashboardStatsResponse,
@@ -27,6 +28,16 @@ import {
   ListSystemSettingsResponse,
   UpdateSystemSettingBody,
   UpdateSystemSettingResponse,
+  ListAllVirtualCardsResponse,
+  DecideVirtualCardParams,
+  DecideVirtualCardBody,
+  DecideVirtualCardResponse,
+  UpdateCustomerLoanAmountParams,
+  UpdateCustomerLoanAmountBody,
+  UpdateCustomerLoanAmountResponse,
+  UpdateCustomerLoanStatusParams,
+  UpdateCustomerLoanStatusBody,
+  UpdateCustomerLoanStatusResponse,
 } from "@workspace/api-zod";
 
 const router: IRouter = Router();
@@ -445,6 +456,227 @@ router.put(
     });
 
     res.json(UpdateSystemSettingResponse.parse(setting));
+  },
+);
+
+// ─── Virtual Cards ────────────────────────────────────────────────────────
+
+router.get(
+  "/admin/virtual-cards",
+  async (req: Request, res: Response): Promise<void> => {
+    if (!requireStaff(req, res)) return;
+
+    const statusFilter = req.query.status as string | undefined;
+    const validStatuses = ["pending", "approved", "rejected"];
+
+    const cards = await db
+      .select({
+        id: virtualCardsTable.id,
+        customerId: virtualCardsTable.customerId,
+        cardNumber: virtualCardsTable.cardNumber,
+        cardHolderName: virtualCardsTable.cardHolderName,
+        bank: virtualCardsTable.bank,
+        status: virtualCardsTable.status,
+        rejectionReason: virtualCardsTable.rejectionReason,
+        approvedBy: virtualCardsTable.approvedBy,
+        approvedAt: virtualCardsTable.approvedAt,
+        createdAt: virtualCardsTable.createdAt,
+        customerName: sql<string>`concat(coalesce(${usersTable.firstName},''), ' ', coalesce(${usersTable.lastName},''))`,
+        customerEmail: usersTable.email,
+      })
+      .from(virtualCardsTable)
+      .innerJoin(usersTable, eq(virtualCardsTable.customerId, usersTable.id))
+      .where(
+        statusFilter && validStatuses.includes(statusFilter)
+          ? eq(virtualCardsTable.status, statusFilter as "pending" | "approved" | "rejected")
+          : undefined,
+      )
+      .orderBy(desc(virtualCardsTable.createdAt));
+
+    res.json(ListAllVirtualCardsResponse.parse(cards));
+  },
+);
+
+router.patch(
+  "/admin/virtual-cards/:id/decision",
+  async (req: Request, res: Response): Promise<void> => {
+    if (!requireStaff(req, res)) return;
+
+    const { id } = DecideVirtualCardParams.parse(req.params);
+    const parsed = DecideVirtualCardBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.message });
+      return;
+    }
+
+    const { status, rejectionReason } = parsed.data;
+    // "request_new" is stored as "rejected" — customer must resubmit
+    const storedStatus = status === "request_new" ? "rejected" : status;
+
+    const [card] = await db
+      .update(virtualCardsTable)
+      .set({
+        status: storedStatus,
+        rejectionReason: rejectionReason ?? null,
+        approvedBy: storedStatus === "approved" ? req.user!.id : null,
+        approvedAt: storedStatus === "approved" ? new Date() : null,
+      })
+      .where(eq(virtualCardsTable.id, id))
+      .returning();
+
+    if (!card) {
+      res.status(404).json({ error: "Card not found" });
+      return;
+    }
+
+    const notifMap: Record<string, { title: string; message: string }> = {
+      approved: {
+        title: "Virtual card approved",
+        message: "Your virtual card has been verified. You can now withdraw your loan.",
+      },
+      rejected: {
+        title: "Virtual card rejected",
+        message: `Your virtual card was rejected.${rejectionReason ? ` Reason: ${rejectionReason}.` : ""} Please submit a new card.`,
+      },
+      request_new: {
+        title: "New card requested",
+        message: `Admin has requested you submit a new virtual card.${rejectionReason ? ` Reason: ${rejectionReason}.` : ""}`,
+      },
+    };
+
+    const notif = notifMap[status];
+    if (notif) {
+      await db.insert(notificationsTable).values({
+        userId: card.customerId,
+        channel: "in_app",
+        title: notif.title,
+        message: notif.message,
+        status: "sent",
+      });
+    }
+
+    await db.insert(auditLogsTable).values({
+      userId: req.user!.id,
+      action: `virtual_card.${status}`,
+      entityType: "virtual_card",
+      entityId: card.id,
+      details: rejectionReason ?? null,
+    });
+
+    res.json(DecideVirtualCardResponse.parse(card));
+  },
+);
+
+// ─── Customer Loan Amount / Status ────────────────────────────────────────
+
+router.patch(
+  "/admin/customers/:id/loan-amount",
+  async (req: Request, res: Response): Promise<void> => {
+    if (!requireStaff(req, res)) return;
+
+    const { id } = UpdateCustomerLoanAmountParams.parse(req.params);
+    const parsed = UpdateCustomerLoanAmountBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.message });
+      return;
+    }
+
+    const amount = parsed.data.approvedLoanAmount.toString();
+
+    const [existing] = await db
+      .select({ id: customerProfilesTable.id })
+      .from(customerProfilesTable)
+      .where(eq(customerProfilesTable.userId, id));
+
+    let profile;
+    if (existing) {
+      [profile] = await db
+        .update(customerProfilesTable)
+        .set({ approvedLoanAmount: amount })
+        .where(eq(customerProfilesTable.userId, id))
+        .returning();
+    } else {
+      [profile] = await db
+        .insert(customerProfilesTable)
+        .values({ userId: id, approvedLoanAmount: amount })
+        .returning();
+    }
+
+    await db.insert(auditLogsTable).values({
+      userId: req.user!.id,
+      action: "customer.loan_amount_updated",
+      entityType: "customer_profile",
+      entityId: id,
+      details: amount,
+    });
+
+    await db.insert(notificationsTable).values({
+      userId: id,
+      channel: "in_app",
+      title: "Loan limit updated",
+      message: `Your approved loan amount has been set to KSh ${Number(amount).toLocaleString()}.`,
+      status: "sent",
+    });
+
+    res.json(UpdateCustomerLoanAmountResponse.parse(profile));
+  },
+);
+
+router.patch(
+  "/admin/customers/:id/loan-status",
+  async (req: Request, res: Response): Promise<void> => {
+    if (!requireStaff(req, res)) return;
+
+    const { id } = UpdateCustomerLoanStatusParams.parse(req.params);
+    const parsed = UpdateCustomerLoanStatusBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.message });
+      return;
+    }
+
+    const [profile] = await db
+      .update(customerProfilesTable)
+      .set({ loanStatus: parsed.data.loanStatus })
+      .where(eq(customerProfilesTable.userId, id))
+      .returning();
+
+    if (!profile) {
+      res.status(404).json({ error: "Customer profile not found" });
+      return;
+    }
+
+    await db.insert(auditLogsTable).values({
+      userId: req.user!.id,
+      action: `customer.loan_${parsed.data.loanStatus}`,
+      entityType: "customer_profile",
+      entityId: id,
+      details: null,
+    });
+
+    const notifMap: Record<string, { title: string; message: string }> = {
+      frozen: {
+        title: "Loan frozen",
+        message: "Your loan has been temporarily frozen. Please contact support for assistance.",
+      },
+      rejected: {
+        title: "Loan rejected",
+        message: "Your loan has been rejected. Please contact support for more information.",
+      },
+      active: { title: "Loan reactivated", message: "Your loan account is now active again." },
+    };
+
+    const notif = notifMap[parsed.data.loanStatus];
+    if (notif) {
+      await db.insert(notificationsTable).values({
+        userId: id,
+        channel: "in_app",
+        title: notif.title,
+        message: notif.message,
+        status: "sent",
+      });
+    }
+
+    res.json(UpdateCustomerLoanStatusResponse.parse(profile));
   },
 );
 

@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, varchar, timestamp, date, boolean, text } from "drizzle-orm/pg-core";
+import { pgTable, varchar, timestamp, date, boolean, text, numeric } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { usersTable } from "./auth";
@@ -20,6 +20,8 @@ export const customerProfilesTable = pgTable("customer_profiles", {
   idBackUrl: varchar("id_back_url"),
   selfieUrl: varchar("selfie_url"),
   profileComplete: boolean("profile_complete").notNull().default(false),
+  approvedLoanAmount: numeric("approved_loan_amount", { precision: 12, scale: 2 }).notNull().default("0"),
+  loanStatus: varchar("loan_status", { enum: ["active", "frozen", "rejected"] as const }).notNull().default("active"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()

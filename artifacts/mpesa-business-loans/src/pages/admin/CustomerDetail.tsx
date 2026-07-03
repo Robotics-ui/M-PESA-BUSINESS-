@@ -1,20 +1,46 @@
+import { useState } from "react";
 import { useParams, Link } from "wouter";
 import {
   useGetCustomerDetail,
   getGetCustomerDetailQueryKey,
   useUpdateCustomerStatus,
   getListCustomersQueryKey,
+  useUpdateCustomerLoanAmount,
+  useUpdateCustomerLoanStatus,
+  useListAllVirtualCards,
+  getListAllVirtualCardsQueryKey,
+  useDecideVirtualCard,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { StatusBadge } from "@/components/StatusBadge";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, formatDate, fullName } from "@/lib/format";
-import { ArrowLeft, ShieldAlert, ShieldCheck, FileImage, ExternalLink } from "lucide-react";
+import {
+  ArrowLeft,
+  ShieldAlert,
+  ShieldCheck,
+  FileImage,
+  ExternalLink,
+  CreditCard,
+  CheckCircle2,
+  XCircle,
+  RefreshCw,
+  DollarSign,
+  Snowflake,
+  Ban,
+  Play,
+} from "lucide-react";
+
+type CardDecisionStatus = "approved" | "rejected" | "request_new";
 
 export default function CustomerDetail() {
   const params = useParams<{ id: string }>();
@@ -22,11 +48,25 @@ export default function CustomerDetail() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
+  // Loan amount edit state
+  const [editingAmount, setEditingAmount] = useState(false);
+  const [amountInput, setAmountInput] = useState("");
+
+  // Card decision modal state
+  const [selectedCard, setSelectedCard] = useState<string | null>(null);
+  const [cardDecision, setCardDecision] = useState<CardDecisionStatus>("approved");
+  const [cardReason, setCardReason] = useState("");
+
   const { data: customer, isLoading } = useGetCustomerDetail(id, {
     query: { enabled: !!id, queryKey: getGetCustomerDetailQueryKey(id) },
   });
 
-  const { mutate: updateStatus, isPending } = useUpdateCustomerStatus({
+  const { data: virtualCards } = useListAllVirtualCards(undefined, {
+    query: { queryKey: getListAllVirtualCardsQueryKey(), enabled: !!id },
+  });
+  const customerCards = virtualCards?.filter((c) => c.customerId === id) ?? [];
+
+  const { mutate: updateStatus, isPending: updatingStatus } = useUpdateCustomerStatus({
     mutation: {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getGetCustomerDetailQueryKey(id) });
@@ -34,6 +74,38 @@ export default function CustomerDetail() {
         toast({ title: "Account status updated" });
       },
       onError: () => toast({ title: "Failed to update status", variant: "destructive" }),
+    },
+  });
+
+  const { mutate: setLoanAmount, isPending: settingAmount } = useUpdateCustomerLoanAmount({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getGetCustomerDetailQueryKey(id) });
+        setEditingAmount(false);
+        toast({ title: "Loan amount updated" });
+      },
+      onError: () => toast({ title: "Failed to update loan amount", variant: "destructive" }),
+    },
+  });
+
+  const { mutate: setLoanStatus, isPending: settingLoanStatus } = useUpdateCustomerLoanStatus({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getGetCustomerDetailQueryKey(id) });
+        toast({ title: "Loan status updated" });
+      },
+      onError: () => toast({ title: "Failed to update loan status", variant: "destructive" }),
+    },
+  });
+
+  const { mutate: decideCard, isPending: decidingCard } = useDecideVirtualCard({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListAllVirtualCardsQueryKey() });
+        setSelectedCard(null);
+        toast({ title: "Decision saved" });
+      },
+      onError: () => toast({ title: "Failed to save decision", variant: "destructive" }),
     },
   });
 
@@ -51,6 +123,8 @@ export default function CustomerDetail() {
   }
 
   const isSuspended = customer.accountStatus === "suspended";
+  const approvedAmount = Number(customer.profile?.approvedLoanAmount ?? "0");
+  const loanStatus = customer.profile?.loanStatus ?? "active";
 
   return (
     <div className="max-w-4xl space-y-6">
@@ -71,7 +145,7 @@ export default function CustomerDetail() {
           <StatusBadge status={customer.accountStatus} />
           <Button
             variant={isSuspended ? "default" : "outline"}
-            disabled={isPending}
+            disabled={updatingStatus}
             onClick={() =>
               updateStatus({
                 id: customer.id,
@@ -93,6 +167,117 @@ export default function CustomerDetail() {
         </div>
       </div>
 
+      {/* Loan controls */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <DollarSign className="h-4 w-4" /> Loan controls
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-end gap-4">
+            <div className="flex-1 space-y-2">
+              <Label>Approved loan amount</Label>
+              {editingAmount ? (
+                <div className="flex gap-2">
+                  <Input
+                    type="number"
+                    min={0}
+                    value={amountInput}
+                    onChange={(e) => setAmountInput(e.target.value)}
+                    placeholder="e.g. 80000"
+                    className="max-w-xs"
+                  />
+                  <Button
+                    size="sm"
+                    disabled={settingAmount}
+                    onClick={() => {
+                      const val = parseFloat(amountInput);
+                      if (!isNaN(val) && val >= 0) {
+                        setLoanAmount({ id, data: { approvedLoanAmount: val } });
+                      }
+                    }}
+                  >
+                    {settingAmount ? "Saving…" : "Save"}
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setEditingAmount(false)}>
+                    Cancel
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-3">
+                  <span className="text-xl font-bold text-foreground">
+                    {approvedAmount > 0 ? formatCurrency(approvedAmount.toString()) : "Not set"}
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setAmountInput(approvedAmount > 0 ? approvedAmount.toString() : "");
+                      setEditingAmount(true);
+                    }}
+                  >
+                    {approvedAmount > 0 ? "Edit" : "Set amount"}
+                  </Button>
+                </div>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label>Loan status</Label>
+              <div className="flex items-center gap-2">
+                <Badge
+                  className={
+                    loanStatus === "active"
+                      ? "bg-green-100 text-green-700 border-green-200"
+                      : loanStatus === "frozen"
+                        ? "bg-blue-100 text-blue-700 border-blue-200"
+                        : "bg-red-100 text-red-700 border-red-200"
+                  }
+                >
+                  {loanStatus}
+                </Badge>
+                {loanStatus !== "frozen" && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={settingLoanStatus}
+                    onClick={() => setLoanStatus({ id, data: { loanStatus: "frozen" } })}
+                    title="Freeze loan"
+                  >
+                    <Snowflake className="h-3.5 w-3.5 mr-1" /> Freeze
+                  </Button>
+                )}
+                {loanStatus !== "rejected" && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-red-700 border-red-200 hover:bg-red-50"
+                    disabled={settingLoanStatus}
+                    onClick={() => setLoanStatus({ id, data: { loanStatus: "rejected" } })}
+                    title="Reject loan"
+                  >
+                    <Ban className="h-3.5 w-3.5 mr-1" /> Reject
+                  </Button>
+                )}
+                {loanStatus !== "active" && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-green-700 border-green-200 hover:bg-green-50"
+                    disabled={settingLoanStatus}
+                    onClick={() => setLoanStatus({ id, data: { loanStatus: "active" } })}
+                    title="Activate loan"
+                  >
+                    <Play className="h-3.5 w-3.5 mr-1" /> Activate
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Profile + Documents */}
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
@@ -154,6 +339,89 @@ export default function CustomerDetail() {
         </Card>
       </div>
 
+      {/* Virtual cards */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <CreditCard className="h-4 w-4" /> Virtual cards
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          {customerCards.length === 0 ? (
+            <p className="text-sm text-muted-foreground px-6 pb-6">No cards submitted yet.</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Card holder</TableHead>
+                  <TableHead>Card number</TableHead>
+                  <TableHead>Bank</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Submitted</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {customerCards.map((card) => (
+                  <TableRow key={card.id}>
+                    <TableCell>{card.cardHolderName}</TableCell>
+                    <TableCell className="font-mono text-sm">{"•••• " + card.cardNumber.slice(-4)}</TableCell>
+                    <TableCell className="text-muted-foreground">{card.bank ?? "—"}</TableCell>
+                    <TableCell>
+                      <Badge
+                        className={
+                          card.status === "approved"
+                            ? "bg-green-100 text-green-700 border-green-200"
+                            : card.status === "rejected"
+                              ? "bg-red-100 text-red-700 border-red-200"
+                              : "bg-yellow-100 text-yellow-700 border-yellow-200"
+                        }
+                      >
+                        {card.status}
+                      </Badge>
+                      {card.rejectionReason && (
+                        <p className="text-xs text-muted-foreground mt-1">{card.rejectionReason}</p>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-sm">{formatDate(card.createdAt)}</TableCell>
+                    <TableCell className="text-right">
+                      {card.status === "pending" && (
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-green-700 border-green-200 hover:bg-green-50"
+                            onClick={() => { setSelectedCard(card.id); setCardDecision("approved"); setCardReason(""); }}
+                          >
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-red-700 border-red-200 hover:bg-red-50"
+                            onClick={() => { setSelectedCard(card.id); setCardDecision("rejected"); setCardReason(""); }}
+                          >
+                            <XCircle className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => { setSelectedCard(card.id); setCardDecision("request_new"); setCardReason(""); }}
+                          >
+                            <RefreshCw className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Loan applications */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Loan applications</CardTitle>
@@ -188,6 +456,7 @@ export default function CustomerDetail() {
         </CardContent>
       </Card>
 
+      {/* Disbursed loans */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Loans</CardTitle>
@@ -221,6 +490,37 @@ export default function CustomerDetail() {
           )}
         </CardContent>
       </Card>
+
+      {/* Card decision modal */}
+      <Dialog open={!!selectedCard} onOpenChange={(open) => !open && setSelectedCard(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {cardDecision === "approved" ? "Approve card" : cardDecision === "rejected" ? "Reject card" : "Request new card"}
+            </DialogTitle>
+          </DialogHeader>
+          {cardDecision !== "approved" && (
+            <div className="space-y-2">
+              <Label>Reason <span className="text-muted-foreground text-xs">(optional)</span></Label>
+              <Textarea value={cardReason} onChange={(e) => setCardReason(e.target.value)} rows={3}
+                placeholder={cardDecision === "rejected" ? "e.g. Card name does not match customer ID" : "e.g. Please provide a debit card"} />
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSelectedCard(null)}>Cancel</Button>
+            <Button
+              disabled={decidingCard}
+              variant={cardDecision === "approved" ? "default" : "destructive"}
+              onClick={() => {
+                if (!selectedCard) return;
+                decideCard({ id: selectedCard, data: { status: cardDecision, rejectionReason: cardReason || undefined } });
+              }}
+            >
+              {decidingCard ? "Saving…" : "Confirm"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

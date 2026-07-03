@@ -1,0 +1,114 @@
+Existing Customer Loan & Virtual Card Workflow
+We need to redesign the existing customer loan process.
+1. Existing Customers
+Existing customers already have an approved loan limit based on their repayment history.
+The system should display the available loan limit after login.
+The amount the customer is allowed to borrow must NOT be calculated automatically.
+Only the Admin can set or adjust the approved borrowing amount for each customer.
+Customers cannot edit this amount.
+Example:
+Loan Limit: KSh 120,000
+Admin Approved Amount: KSh 80,000
+Available to Withdraw: KSh 80,000
+2. Virtual Card Submission
+After signing in:
+If the customer does not have an approved withdrawal card, show:
+Add Virtual Card
+The customer enters:
+Card Number
+Card Holder Name
+Bank/Card Provider (optional)
+Status becomes:
+Pending Approval
+3. Admin Approval
+Admin Dashboard should have:
+Virtual Cards
+Each card can be:
+Pending
+Approved
+Rejected
+Admin actions:
+Approve
+Reject
+Request another card
+Admin may also leave remarks.
+Example:
+Rejected Reason: Card name does not match customer.
+4. Customer Status Flow
+Customer dashboard should display the exact card status.
+Step 1
+Pending Approval
+Waiting for Admin review.
+↓
+Step 2A
+Approved
+Card verified successfully.
+Button:
+Withdraw Loan
+↓
+Step 2B
+Rejected
+Reason displayed.
+Button:
+Add Another Card
+5. Withdrawal Rule
+Customer can ONLY withdraw if:
+Admin Approved Amount > 0
+Virtual Card Status = Approved
+Otherwise:
+Disable the Withdraw button.
+6. Admin Controls
+Admin should be able to:
+Set Approved Loan Amount
+Edit Approved Amount
+Freeze Loan
+Reject Loan
+Approve Virtual Card
+Reject Virtual Card
+View Card History
+View Customer History
+7. Database Changes
+Add fields:
+Customers
+approvedLoanAmount
+loanStatus
+VirtualCards
+customerId
+cardNumber
+cardHolderName
+status
+rejectionReason
+approvedBy
+approvedAt
+createdAt
+8. Customer Dashboard
+Show:
+Loan Limit
+Admin Approved Amount
+Virtual Card Status
+Card Approval Progress
+Withdraw Button (only when approved)
+9. Workflow Summary
+Customer Login
+        │
+        ▼
+View Approved Loan Amount
+        │
+        ▼
+Add Virtual Card
+        │
+        ▼
+Pending Admin Approval
+        │
+   ┌────┴────┐
+   │         │
+Approved   Rejected
+   │         │
+Withdraw   Add Another Card
+Loan
+Important Business Rules
+The Admin has full control over the loan amount that can be withdrawn.
+Customers cannot modify their approved amount.
+A loan can only be withdrawn through an Admin-approved virtual card.
+If a card is rejected, the customer must submit a new card before they can withdraw.
+Every approval, rejection, and withdrawal action must be logged in the audit trail for accountability.

@@ -6,6 +6,7 @@ import profileRouter from "./profile";
 import loansRouter from "./loans";
 import notificationsRouter from "./notifications";
 import adminRouter from "./admin";
+import virtualCardsRouter from "./virtualCards";
 
 const router: IRouter = Router();
 
@@ -16,5 +17,6 @@ router.use(profileRouter);
 router.use(loansRouter);
 router.use(notificationsRouter);
 router.use(adminRouter);
+router.use(virtualCardsRouter);
 
 export default router;

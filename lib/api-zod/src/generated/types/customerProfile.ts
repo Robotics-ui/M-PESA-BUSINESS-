@@ -27,6 +27,10 @@ export interface CustomerProfile {
   /** @nullable */
   selfieUrl: string | null;
   profileComplete: boolean;
+  /** Admin-set approved borrowing limit (stored as string from numeric DB column) */
+  approvedLoanAmount: string;
+  /** @nullable */
+  loanStatus: 'active' | 'frozen' | 'rejected';
   createdAt: Date;
   updatedAt: Date;
 }

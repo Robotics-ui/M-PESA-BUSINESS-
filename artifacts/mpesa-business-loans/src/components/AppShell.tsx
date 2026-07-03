@@ -17,6 +17,7 @@ import {
   ScrollText,
   Settings,
   LogOut,
+  CreditCard,
 } from "lucide-react";
 
 interface NavItem {
@@ -29,6 +30,7 @@ const CUSTOMER_NAV: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/apply", label: "Apply for a loan", icon: FileText },
   { href: "/loans", label: "My loans", icon: Wallet },
+  { href: "/virtual-card", label: "Virtual card", icon: CreditCard },
   { href: "/notifications", label: "Notifications", icon: Bell },
   { href: "/profile", label: "Profile", icon: UserCircle },
 ];
@@ -37,6 +39,7 @@ const STAFF_NAV: NavItem[] = [
   { href: "/admin", label: "Overview", icon: LayoutDashboard },
   { href: "/admin/customers", label: "Customers", icon: Users },
   { href: "/admin/loans", label: "Loan applications", icon: ClipboardList },
+  { href: "/admin/virtual-cards", label: "Virtual cards", icon: CreditCard },
   { href: "/admin/audit-logs", label: "Audit logs", icon: ScrollText },
 ];
 
