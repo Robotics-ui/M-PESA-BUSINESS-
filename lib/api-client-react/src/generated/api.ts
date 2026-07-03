@@ -43,6 +43,7 @@ import type {
   Loan,
   LoanApplication,
   LoanApplicationDecision,
+  LoanApplicationEdit,
   LoanApplicationInput,
   LoanApplicationWithCustomer,
   LoginInput,
@@ -1976,7 +1977,7 @@ export const decideLoanApplication = async (id: string,
 
 
 
-export const getDecideLoanApplicationMutationOptions = <TError = ErrorType<ErrorEnvelope>,
+export const getDecideLoanApplicationMutationOptions = <TError = ErrorType<ErrorEnvelope | void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof decideLoanApplication>>, TError,{id: string;data: BodyType<LoanApplicationDecision>}, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof decideLoanApplication>>, TError,{id: string;data: BodyType<LoanApplicationDecision>}, TContext> => {
 
@@ -2005,12 +2006,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type DecideLoanApplicationMutationResult = NonNullable<Awaited<ReturnType<typeof decideLoanApplication>>>
     export type DecideLoanApplicationMutationBody = BodyType<LoanApplicationDecision>
-    export type DecideLoanApplicationMutationError = ErrorType<ErrorEnvelope>
+    export type DecideLoanApplicationMutationError = ErrorType<ErrorEnvelope | void>
 
     /**
  * @summary Approve, reject, or hold a loan application
  */
-export const useDecideLoanApplication = <TError = ErrorType<ErrorEnvelope>,
+export const useDecideLoanApplication = <TError = ErrorType<ErrorEnvelope | void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof decideLoanApplication>>, TError,{id: string;data: BodyType<LoanApplicationDecision>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof decideLoanApplication>>,
@@ -2019,6 +2020,77 @@ export const useDecideLoanApplication = <TError = ErrorType<ErrorEnvelope>,
         TContext
       > => {
       return useMutation(getDecideLoanApplicationMutationOptions(options));
+    }
+
+export const getEditLoanApplicationUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin/loan-applications/${id}/edit`
+}
+
+/**
+ * @summary Edit an applied loan's details before it is decided
+ */
+export const editLoanApplication = async (id: string,
+    loanApplicationEdit: LoanApplicationEdit, options?: RequestInit): Promise<LoanApplicationWithCustomer> => {
+
+  return customFetch<LoanApplicationWithCustomer>(getEditLoanApplicationUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(loanApplicationEdit)
+  }
+);}
+
+
+
+
+export const getEditLoanApplicationMutationOptions = <TError = ErrorType<ErrorEnvelope | void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof editLoanApplication>>, TError,{id: string;data: BodyType<LoanApplicationEdit>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof editLoanApplication>>, TError,{id: string;data: BodyType<LoanApplicationEdit>}, TContext> => {
+
+const mutationKey = ['editLoanApplication'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof editLoanApplication>>, {id: string;data: BodyType<LoanApplicationEdit>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  editLoanApplication(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type EditLoanApplicationMutationResult = NonNullable<Awaited<ReturnType<typeof editLoanApplication>>>
+    export type EditLoanApplicationMutationBody = BodyType<LoanApplicationEdit>
+    export type EditLoanApplicationMutationError = ErrorType<ErrorEnvelope | void>
+
+    /**
+ * @summary Edit an applied loan's details before it is decided
+ */
+export const useEditLoanApplication = <TError = ErrorType<ErrorEnvelope | void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof editLoanApplication>>, TError,{id: string;data: BodyType<LoanApplicationEdit>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof editLoanApplication>>,
+        TError,
+        {id: string;data: BodyType<LoanApplicationEdit>},
+        TContext
+      > => {
+      return useMutation(getEditLoanApplicationMutationOptions(options));
     }
 
 export const getListAuditLogsUrl = () => {

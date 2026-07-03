@@ -292,6 +292,14 @@ export default function Dashboard() {
               <div className="mt-2">
                 <StatusBadge status={latestApplication.status} />
               </div>
+              {latestApplication.status === "approved" && (
+                <p className="text-xs text-green-700 mt-2">
+                  Next step: {latestApplication.reviewNotes || "add and verify your virtual card, then withdraw your funds."}
+                </p>
+              )}
+              {latestApplication.status === "rejected" && latestApplication.reviewNotes && (
+                <p className="text-xs text-red-700 mt-2">Reason: {latestApplication.reviewNotes}</p>
+              )}
             </>
           ) : (
             <div>

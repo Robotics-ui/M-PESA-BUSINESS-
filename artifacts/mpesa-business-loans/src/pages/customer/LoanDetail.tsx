@@ -75,14 +75,37 @@ export default function LoanDetail() {
               <span className="text-foreground">{formatDate(application.reviewedAt)}</span>
             </>
           )}
-          {application.reviewNotes && (
-            <>
-              <span className="text-muted-foreground">Officer notes</span>
-              <span className="text-foreground">{application.reviewNotes}</span>
-            </>
-          )}
         </CardContent>
       </Card>
+
+      {application.status === "rejected" && application.reviewNotes && (
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="pt-6">
+            <p className="text-sm font-medium text-red-800 mb-1">Reason for rejection</p>
+            <p className="text-sm text-red-700">{application.reviewNotes}</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {application.status === "approved" && (
+        <Card className="border-green-200 bg-green-50">
+          <CardContent className="pt-6">
+            <p className="text-sm font-medium text-green-800 mb-1">Next step</p>
+            <p className="text-sm text-green-700">
+              {application.reviewNotes ||
+                "Add and verify your virtual card, then request a withdrawal to receive your funds."}
+            </p>
+            <div className="flex gap-3 mt-3">
+              <Link href="/virtual-card">
+                <a className="text-xs text-primary hover:underline">Manage virtual card →</a>
+              </Link>
+              <Link href="/withdraw">
+                <a className="text-xs text-primary hover:underline">Withdraw funds →</a>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {loan && (
         <Card>

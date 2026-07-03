@@ -247,7 +247,25 @@ export const LoanApplicationDecisionStatus = {
 
 export interface LoanApplicationDecision {
   status: LoanApplicationDecisionStatus;
+  /** When status is "rejected" this is required and is shown to the customer as the reason for rejection. When status is "approved" this is optional guidance shown to the customer as their next step (e.g. how to proceed to withdrawal). */
   reviewNotes?: string;
+}
+
+/**
+ * Fields an admin can adjust on a pending/on-hold application before deciding it.
+ */
+export interface LoanApplicationEdit {
+  /** Decimal amount as a string, e.g. "50000.00" */
+  amount?: string;
+  /** @minLength 1 */
+  purpose?: string;
+  /** @minLength 1 */
+  loanType?: string;
+  /**
+     * @minimum 1
+     * @maximum 60
+     */
+  termMonths?: number;
 }
 
 export type LoanStatus = typeof LoanStatus[keyof typeof LoanStatus];

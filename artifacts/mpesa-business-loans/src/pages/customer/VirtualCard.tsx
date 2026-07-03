@@ -101,6 +101,20 @@ export default function VirtualCard() {
         </p>
       </div>
 
+      <Card className="bg-muted/40">
+        <CardContent className="pt-4 pb-4">
+          <p className="text-sm font-medium text-foreground mb-2">How the virtual card works</p>
+          <ul className="text-xs text-muted-foreground space-y-1.5 list-disc pl-4">
+            <li>Enter the card number and card holder name exactly as they appear on your card — you'll need to re-enter the number to verify a withdrawal later.</li>
+            <li>Adding your bank or provider name is optional but helps our team review your card faster.</li>
+            <li>An admin manually reviews every new card. This usually takes a short while — you'll get a notification the moment a decision is made.</li>
+            <li>Once approved, your card stays linked to your account and is required to verify every future withdrawal.</li>
+            <li>If your card is rejected, you can submit a new one straight away using the form below.</li>
+            <li>Keep your card details private — never share your full card number with anyone claiming to be from support.</li>
+          </ul>
+        </CardContent>
+      </Card>
+
       {/* Progress steps */}
       <Card>
         <CardContent className="pt-6">

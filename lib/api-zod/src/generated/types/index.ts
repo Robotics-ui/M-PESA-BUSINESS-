@@ -39,6 +39,7 @@ export * from './loan';
 export * from './loanApplication';
 export * from './loanApplicationDecision';
 export * from './loanApplicationDecisionStatus';
+export * from './loanApplicationEdit';
 export * from './loanApplicationInput';
 export * from './loanApplicationStatus';
 export * from './loanApplicationWithCustomer';

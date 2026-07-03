@@ -606,10 +606,49 @@ export const DecideLoanApplicationParams = zod.object({
 
 export const DecideLoanApplicationBody = zod.object({
   "status": zod.enum(['approved', 'rejected', 'hold']),
-  "reviewNotes": zod.string().optional()
+  "reviewNotes": zod.string().optional().describe('When status is \"rejected\" this is required and is shown to the customer as the reason for rejection. When status is \"approved\" this is optional guidance shown to the customer as their next step (e.g. how to proceed to withdrawal).')
 })
 
 export const DecideLoanApplicationResponse = zod.object({
+  "id": zod.string(),
+  "customerId": zod.string(),
+  "amount": zod.string(),
+  "purpose": zod.string(),
+  "loanType": zod.string(),
+  "termMonths": zod.number(),
+  "status": zod.enum(['pending', 'approved', 'rejected', 'hold']),
+  "reviewedBy": zod.string().nullable(),
+  "reviewedAt": zod.coerce.date().nullable(),
+  "reviewNotes": zod.string().nullable(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+}).and(zod.object({
+  "customerName": zod.string().nullable(),
+  "customerEmail": zod.string().nullable()
+}))
+
+
+/**
+ * @summary Edit an applied loan's details before it is decided
+ */
+export const EditLoanApplicationParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+
+
+export const editLoanApplicationBodyTermMonthsMax = 60;
+
+
+
+export const EditLoanApplicationBody = zod.object({
+  "amount": zod.string().optional().describe('Decimal amount as a string, e.g. \"50000.00\"'),
+  "purpose": zod.string().min(1).optional(),
+  "loanType": zod.string().min(1).optional(),
+  "termMonths": zod.number().min(1).max(editLoanApplicationBodyTermMonthsMax).optional()
+}).describe('Fields an admin can adjust on a pending\/on-hold application before deciding it.')
+
+export const EditLoanApplicationResponse = zod.object({
   "id": zod.string(),
   "customerId": zod.string(),
   "amount": zod.string(),

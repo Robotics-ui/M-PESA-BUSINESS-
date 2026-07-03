@@ -24,6 +24,9 @@ import {
   DecideLoanApplicationParams,
   DecideLoanApplicationBody,
   DecideLoanApplicationResponse,
+  EditLoanApplicationParams,
+  EditLoanApplicationBody,
+  EditLoanApplicationResponse,
   ListAuditLogsResponse,
   ListSystemSettingsResponse,
   UpdateSystemSettingBody,
@@ -349,11 +352,16 @@ router.patch(
       return;
     }
 
+    if (parsed.data.status === "rejected" && !parsed.data.reviewNotes?.trim()) {
+      res.status(400).json({ error: "A reason is required when rejecting a loan application" });
+      return;
+    }
+
     const [application] = await db
       .update(loanApplicationsTable)
       .set({
         status: parsed.data.status,
-        reviewNotes: parsed.data.reviewNotes ?? null,
+        reviewNotes: parsed.data.reviewNotes?.trim() || null,
         reviewedBy: req.user!.id,
         reviewedAt: new Date(),
       })
@@ -373,11 +381,21 @@ router.patch(
       details: parsed.data.reviewNotes ?? null,
     });
 
+    let notificationMessage = `Your loan application for ${application.amount} has been ${parsed.data.status}.`;
+    if (parsed.data.status === "approved") {
+      const nextStep =
+        application.reviewNotes ||
+        "Next step: add and verify your virtual card, then request a withdrawal to receive your funds.";
+      notificationMessage = `${notificationMessage} ${nextStep}`;
+    } else if (parsed.data.status === "rejected") {
+      notificationMessage = `${notificationMessage} Reason: ${application.reviewNotes}`;
+    }
+
     await db.insert(notificationsTable).values({
       userId: application.customerId,
       channel: "in_app",
       title: `Loan application ${parsed.data.status}`,
-      message: `Your loan application for ${application.amount} has been ${parsed.data.status}.`,
+      message: notificationMessage,
       status: "sent",
     });
 
@@ -392,6 +410,75 @@ router.patch(
 
     res.json(
       DecideLoanApplicationResponse.parse({
+        ...application,
+        customerName: customer
+          ? [customer.firstName, customer.lastName].filter(Boolean).join(" ")
+          : null,
+        customerEmail: customer?.email ?? null,
+      }),
+    );
+  },
+);
+
+router.patch(
+  "/admin/loan-applications/:id/edit",
+  async (req: Request, res: Response): Promise<void> => {
+    if (!(await requireStaff(req, res))) return;
+
+    const params = EditLoanApplicationParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+
+    const parsed = EditLoanApplicationBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.message });
+      return;
+    }
+
+    const [existing] = await db
+      .select()
+      .from(loanApplicationsTable)
+      .where(eq(loanApplicationsTable.id, params.data.id));
+
+    if (!existing) {
+      res.status(404).json({ error: "Loan application not found" });
+      return;
+    }
+
+    if (existing.status !== "pending" && existing.status !== "hold") {
+      res.status(400).json({ error: "Only pending or on-hold applications can be edited" });
+      return;
+    }
+
+    const updates: Partial<typeof loanApplicationsTable.$inferInsert> = {};
+    if (parsed.data.amount !== undefined) updates.amount = parsed.data.amount;
+    if (parsed.data.purpose !== undefined) updates.purpose = parsed.data.purpose;
+    if (parsed.data.loanType !== undefined) updates.loanType = parsed.data.loanType;
+    if (parsed.data.termMonths !== undefined) updates.termMonths = parsed.data.termMonths;
+
+    const [application] = await db
+      .update(loanApplicationsTable)
+      .set(updates)
+      .where(eq(loanApplicationsTable.id, params.data.id))
+      .returning();
+
+    await db.insert(auditLogsTable).values({
+      userId: req.user!.id,
+      action: "loan_application.edited",
+      entityType: "loan_application",
+      entityId: application.id,
+      details: JSON.stringify(updates),
+    });
+
+    const [customer] = await db
+      .select()
+      .from(usersTable)
+      .where(eq(usersTable.id, application.customerId));
+
+    res.json(
+      EditLoanApplicationResponse.parse({
         ...application,
         customerName: customer
           ? [customer.firstName, customer.lastName].filter(Boolean).join(" ")

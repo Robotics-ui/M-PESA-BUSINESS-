@@ -55,6 +55,18 @@ export default function Loans() {
                         <p className="text-xs text-muted-foreground mt-1">{formatDate(app.createdAt)}</p>
                       </div>
                     </CardContent>
+                    {app.status === "approved" && (
+                      <CardContent className="pt-0 pb-4 -mt-2">
+                        <p className="text-xs text-green-700">
+                          Next step: {app.reviewNotes || "add and verify your virtual card, then withdraw your funds."}
+                        </p>
+                      </CardContent>
+                    )}
+                    {app.status === "rejected" && app.reviewNotes && (
+                      <CardContent className="pt-0 pb-4 -mt-2">
+                        <p className="text-xs text-red-700">Reason: {app.reviewNotes}</p>
+                      </CardContent>
+                    )}
                   </Card>
                 </a>
               </Link>

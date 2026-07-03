@@ -271,10 +271,19 @@ export default function Withdraw() {
           </CardContent>
         </Card>
 
-        <p className="text-xs text-muted-foreground">
-          Funds will be sent to your registered M-Pesa number. You cannot change the
-          number at this stage. You will be asked to verify your virtual card next.
-        </p>
+        <Card className="bg-muted/40">
+          <CardContent className="pt-4 pb-4">
+            <p className="text-sm font-medium text-foreground mb-2">How withdrawal works</p>
+            <ul className="text-xs text-muted-foreground space-y-1.5 list-disc pl-4">
+              <li>Funds will be sent to your registered M-Pesa number — you cannot change the number at this stage.</li>
+              <li>You must have an approved virtual card before you can withdraw. Add one from the Virtual Card page if you haven't already.</li>
+              <li>On the next screen, enter your virtual card number exactly as you registered it to confirm the withdrawal.</li>
+              <li>After 3 failed verification attempts, your withdrawal will be locked and you'll need to contact support to unlock it.</li>
+              <li>Once verified, the full approved amount is disbursed immediately and a 12-month repayment schedule (10% flat interest) is created automatically.</li>
+              <li>You can only withdraw once per approved loan — make sure the details are correct before continuing.</li>
+            </ul>
+          </CardContent>
+        </Card>
 
         <Button
           className="w-full"

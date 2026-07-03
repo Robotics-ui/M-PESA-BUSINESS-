@@ -525,12 +525,42 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/LoanApplicationWithCustomer'
-        '404':
-          description: Not found.
+        '400':
+          description: Validation error, e.g. missing rejection reason.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Not found.
+  /admin/loan-applications/{id}/edit:
+    patch:
+      tags: [Admin]
+      operationId: editLoanApplication
+      summary: Edit an applied loan's details before it is decided
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoanApplicationEdit'
+      responses:
+        '200':
+          description: Loan application updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoanApplicationWithCustomer'
+        '400':
+          description: Validation error, e.g. application already decided.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Not found.
   /admin/audit-logs:
     get:
       tags: [Admin]
@@ -1100,6 +1130,28 @@ components:
           enum: [approved, rejected, hold]
         reviewNotes:
           type: string
+          description: >-
+            When status is "rejected" this is required and is shown to the
+            customer as the reason for rejection. When status is "approved"
+            this is optional guidance shown to the customer as their next
+            step (e.g. how to proceed to withdrawal).
+    LoanApplicationEdit:
+      type: object
+      description: Fields an admin can adjust on a pending/on-hold application before deciding it.
+      properties:
+        amount:
+          type: string
+          description: Decimal amount as a string, e.g. "50000.00"
+        purpose:
+          type: string
+          minLength: 1
+        loanType:
+          type: string
+          minLength: 1
+        termMonths:
+          type: integer
+          minimum: 1
+          maximum: 60
 
     LoanStatus:
       type: string

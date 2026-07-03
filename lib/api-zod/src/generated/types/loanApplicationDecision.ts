@@ -9,5 +9,6 @@ import type { LoanApplicationDecisionStatus } from './loanApplicationDecisionSta
 
 export interface LoanApplicationDecision {
   status: LoanApplicationDecisionStatus;
+  /** When status is "rejected" this is required and is shown to the customer as the reason for rejection. When status is "approved" this is optional guidance shown to the customer as their next step (e.g. how to proceed to withdrawal). */
   reviewNotes?: string;
 }

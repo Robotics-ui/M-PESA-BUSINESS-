@@ -3,6 +3,7 @@ import { Link } from "wouter";
 import {
   useListAllLoanApplications,
   useDecideLoanApplication,
+  useEditLoanApplication,
   getListAllLoanApplicationsQueryKey,
   ListAllLoanApplicationsStatus,
   LoanApplicationDecisionStatus,
@@ -29,16 +30,21 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { StatusBadge } from "@/components/StatusBadge";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, formatDate } from "@/lib/format";
-import { ClipboardList, Check, X, PauseCircle } from "lucide-react";
+import { ClipboardList, Check, X, PauseCircle, Pencil } from "lucide-react";
 
 export default function AdminLoans() {
   const [status, setStatus] = useState<string>("all");
   const [reviewing, setReviewing] = useState<LoanApplicationWithCustomer | null>(null);
   const [decisionStatus, setDecisionStatus] = useState<LoanApplicationDecisionStatus>("approved");
   const [reviewNotes, setReviewNotes] = useState("");
+
+  const [editing, setEditing] = useState<LoanApplicationWithCustomer | null>(null);
+  const [editForm, setEditForm] = useState({ amount: "", purpose: "", loanType: "", termMonths: "" });
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -55,7 +61,24 @@ export default function AdminLoans() {
         setReviewing(null);
         setReviewNotes("");
       },
-      onError: () => toast({ title: "Failed to record decision", variant: "destructive" }),
+      onError: (err: any) => {
+        const msg = err?.response?.data?.error ?? "Failed to record decision";
+        toast({ title: msg, variant: "destructive" });
+      },
+    },
+  });
+
+  const { mutate: editApplication, isPending: isEditing } = useEditLoanApplication({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListAllLoanApplicationsQueryKey() });
+        toast({ title: "Application updated" });
+        setEditing(null);
+      },
+      onError: (err: any) => {
+        const msg = err?.response?.data?.error ?? "Failed to update application";
+        toast({ title: msg, variant: "destructive" });
+      },
     },
   });
 
@@ -64,6 +87,20 @@ export default function AdminLoans() {
     setDecisionStatus(decision);
     setReviewNotes("");
   }
+
+  function openEdit(app: LoanApplicationWithCustomer) {
+    setEditing(app);
+    setEditForm({
+      amount: app.amount,
+      purpose: app.purpose,
+      loanType: app.loanType,
+      termMonths: String(app.termMonths),
+    });
+  }
+
+  const isRejecting = decisionStatus === "rejected";
+  const isApproving = decisionStatus === "approved";
+  const canConfirmDecision = !isRejecting || reviewNotes.trim().length > 0;
 
   return (
     <div className="space-y-6">
@@ -134,6 +171,16 @@ export default function AdminLoans() {
                             size="icon"
                             variant="outline"
                             className="h-8 w-8"
+                            onClick={() => openEdit(app)}
+                            title="Edit details"
+                            data-testid={`button-edit-${app.id}`}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="outline"
+                            className="h-8 w-8"
                             onClick={() => openReview(app, "approved")}
                             title="Approve"
                             data-testid={`button-approve-${app.id}`}
@@ -173,6 +220,86 @@ export default function AdminLoans() {
         </CardContent>
       </Card>
 
+      {/* Edit dialog */}
+      <Dialog open={!!editing} onOpenChange={(open) => !open && setEditing(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit application</DialogTitle>
+            <DialogDescription>
+              {editing && `Adjust ${editing.customerName ?? "this customer"}'s requested loan details before deciding.`}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-amount">Amount</Label>
+              <Input
+                id="edit-amount"
+                value={editForm.amount}
+                onChange={(e) => setEditForm((f) => ({ ...f, amount: e.target.value }))}
+                data-testid="input-edit-amount"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-purpose">Purpose</Label>
+              <Textarea
+                id="edit-purpose"
+                value={editForm.purpose}
+                onChange={(e) => setEditForm((f) => ({ ...f, purpose: e.target.value }))}
+                rows={3}
+                data-testid="input-edit-purpose"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-loan-type">Loan type</Label>
+                <Input
+                  id="edit-loan-type"
+                  value={editForm.loanType}
+                  onChange={(e) => setEditForm((f) => ({ ...f, loanType: e.target.value }))}
+                  data-testid="input-edit-loan-type"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-term">Term (months)</Label>
+                <Input
+                  id="edit-term"
+                  type="number"
+                  min={1}
+                  max={60}
+                  value={editForm.termMonths}
+                  onChange={(e) => setEditForm((f) => ({ ...f, termMonths: e.target.value }))}
+                  data-testid="input-edit-term"
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditing(null)} disabled={isEditing}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() =>
+                editing &&
+                editApplication({
+                  id: editing.id,
+                  data: {
+                    amount: editForm.amount,
+                    purpose: editForm.purpose,
+                    loanType: editForm.loanType,
+                    termMonths: Number(editForm.termMonths),
+                  },
+                })
+              }
+              disabled={isEditing}
+              data-testid="button-save-edit"
+            >
+              {isEditing ? "Saving..." : "Save changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Decision dialog */}
       <Dialog open={!!reviewing} onOpenChange={(open) => !open && setReviewing(null)}>
         <DialogContent>
           <DialogHeader>
@@ -181,13 +308,32 @@ export default function AdminLoans() {
               {reviewing && `${reviewing.customerName ?? "This customer"}'s request for ${formatCurrency(reviewing.amount)}`}
             </DialogDescription>
           </DialogHeader>
-          <Textarea
-            placeholder="Add review notes (optional)"
-            value={reviewNotes}
-            onChange={(e) => setReviewNotes(e.target.value)}
-            rows={4}
-            data-testid="input-review-notes"
-          />
+          <div className="space-y-2">
+            <Label htmlFor="review-notes">
+              {isRejecting
+                ? "Reason for rejection (required, shown to the customer)"
+                : isApproving
+                  ? "Next step for the customer (optional, shown to the customer)"
+                  : "Notes (optional)"}
+            </Label>
+            <Textarea
+              id="review-notes"
+              placeholder={
+                isRejecting
+                  ? "Explain why this application is being rejected…"
+                  : isApproving
+                    ? "e.g. Add and verify your virtual card, then request a withdrawal to receive your funds."
+                    : "Add review notes (optional)"
+              }
+              value={reviewNotes}
+              onChange={(e) => setReviewNotes(e.target.value)}
+              rows={4}
+              data-testid="input-review-notes"
+            />
+            {isRejecting && !reviewNotes.trim() && (
+              <p className="text-xs text-destructive">A rejection reason is required.</p>
+            )}
+          </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setReviewing(null)} disabled={isPending}>
               Cancel
@@ -197,10 +343,10 @@ export default function AdminLoans() {
                 reviewing &&
                 decide({
                   id: reviewing.id,
-                  data: { status: decisionStatus, reviewNotes: reviewNotes || undefined },
+                  data: { status: decisionStatus, reviewNotes: reviewNotes.trim() || undefined },
                 })
               }
-              disabled={isPending}
+              disabled={isPending || !canConfirmDecision}
               data-testid="button-confirm-decision"
             >
               {isPending ? "Saving..." : `Confirm ${decisionStatus}`}
