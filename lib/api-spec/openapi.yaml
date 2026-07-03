@@ -796,13 +796,10 @@ components:
           minLength: 1
     OtpRequestResult:
       type: object
-      required: [message, devCode]
+      required: [message]
       properties:
         message:
           type: string
-        devCode:
-          type: string
-          description: The generated OTP, returned directly since no SMS provider is connected yet (foundation phase stub).
     OtpVerifyInput:
       type: object
       required: [phone, code]

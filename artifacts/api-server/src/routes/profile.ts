@@ -4,6 +4,7 @@ import {
   db,
   customerProfilesTable,
   documentsTable,
+  notificationsTable,
   otpCodesTable,
   usersTable,
   auditLogsTable,
@@ -188,12 +189,18 @@ router.post(
 
     req.log.info({ userId: req.user!.id }, "OTP generated for phone verification");
 
-    // Foundation phase: no SMS provider is connected yet, so the code is
-    // returned directly in the response instead of being silently dropped.
+    // Deliver the code via in-app notification
+    await db.insert(notificationsTable).values({
+      userId: req.user!.id,
+      channel: "in_app",
+      title: "Your verification code",
+      message: `Your phone verification code is ${code}. It expires in 10 minutes.`,
+      status: "sent",
+    });
+
     res.json(
       RequestPhoneOtpResponse.parse({
-        message: "OTP generated (SMS delivery not yet connected; code shown for testing).",
-        devCode: code,
+        message: "Verification code sent — check your in-app notifications.",
       }),
     );
   },

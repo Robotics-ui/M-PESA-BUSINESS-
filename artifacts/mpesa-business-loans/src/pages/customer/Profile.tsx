@@ -44,7 +44,6 @@ export default function Profile() {
     nationalIdNumber: "",
   });
   const [otpCode, setOtpCode] = useState("");
-  const [devCode, setDevCode] = useState<string | null>(null);
   const [otpSent, setOtpSent] = useState(false);
   const [uploadingSlot, setUploadingSlot] = useState<string | null>(null);
 
@@ -72,10 +71,9 @@ export default function Profile() {
 
   const { mutate: requestOtp, isPending: requestingOtp } = useRequestPhoneOtp({
     mutation: {
-      onSuccess: (result) => {
-        setDevCode(result.devCode);
+      onSuccess: () => {
         setOtpSent(true);
-        toast({ title: "Verification code sent", description: "SMS is not yet connected — see the dev code below." });
+        toast({ title: "Verification code sent", description: "Check your notifications for the code." });
       },
       onError: () => toast({ title: "Couldn't send code", variant: "destructive" }),
     },
@@ -89,7 +87,6 @@ export default function Profile() {
           toast({ title: "Phone number verified" });
           setOtpSent(false);
           setOtpCode("");
-          setDevCode(null);
         } else {
           toast({ title: "Incorrect code", variant: "destructive" });
         }
@@ -275,12 +272,9 @@ export default function Profile() {
 
           {otpSent && !profile?.phoneVerified && (
             <div className="rounded-md border border-dashed border-border p-4 space-y-3">
-              {devCode && (
-                <p className="text-xs text-muted-foreground">
-                  SMS delivery isn't connected yet in this foundation phase — your dev verification code is{" "}
-                  <span className="font-mono font-semibold text-foreground">{devCode}</span>
-                </p>
-              )}
+              <p className="text-xs text-muted-foreground">
+                Your verification code was sent — check the notification bell at the top of the page.
+              </p>
               <div className="flex items-end gap-3">
                 <div className="space-y-2">
                   <Label htmlFor="otp">Enter code</Label>

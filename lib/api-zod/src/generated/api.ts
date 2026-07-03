@@ -225,7 +225,6 @@ export const RequestPhoneOtpBody = zod.object({
 
 export const RequestPhoneOtpResponse = zod.object({
   "message": zod.string(),
-  "devCode": zod.string().describe('The generated OTP, returned directly since no SMS provider is connected yet (foundation phase stub).')
 })
 
 
