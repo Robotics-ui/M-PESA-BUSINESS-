@@ -1,6 +1,6 @@
 import { type Request, type Response, type NextFunction } from "express";
 import type { AuthUser } from "@workspace/api-zod";
-import { clearSession, getSessionId, getSession } from "../lib/auth";
+import { clearSession, getSessionId, getSession, loadAuthUser } from "../lib/auth";
 
 declare global {
   namespace Express {
@@ -40,6 +40,13 @@ export async function authMiddleware(
     return;
   }
 
-  req.user = session.user;
+  const freshUser = await loadAuthUser(session.user.id);
+  if (!freshUser) {
+    await clearSession(res, sid);
+    next();
+    return;
+  }
+
+  req.user = freshUser;
   next();
 }

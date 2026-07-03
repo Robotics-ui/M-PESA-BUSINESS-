@@ -10,13 +10,14 @@ import {
   ChangeMyPasswordBody,
   ChangeMyPasswordResponse,
 } from "@workspace/api-zod";
-import { db, usersTable, type User } from "@workspace/db";
+import { db, usersTable } from "@workspace/db";
 import {
   clearSession,
   getSessionId,
   createSession,
   hashPassword,
   verifyPassword,
+  toAuthUser,
   SESSION_COOKIE,
   SESSION_TTL,
   type SessionData,
@@ -32,19 +33,6 @@ function setSessionCookie(res: Response, sid: string) {
     path: "/",
     maxAge: SESSION_TTL,
   });
-}
-
-function toSessionUser(dbUser: User): SessionData["user"] {
-  return {
-    id: dbUser.id,
-    email: dbUser.email,
-    firstName: dbUser.firstName,
-    lastName: dbUser.lastName,
-    profileImageUrl: dbUser.profileImageUrl,
-    role: dbUser.role,
-    accountStatus: dbUser.accountStatus,
-    mustChangePassword: dbUser.mustChangePassword,
-  };
 }
 
 router.get("/auth/user", (req: Request, res: Response) => {
@@ -86,7 +74,7 @@ router.post("/auth/signup", async (req: Request, res: Response) => {
     })
     .returning();
 
-  const sessionData: SessionData = { user: toSessionUser(dbUser) };
+  const sessionData: SessionData = { user: toAuthUser(dbUser) };
   const sid = await createSession(sessionData);
   setSessionCookie(res, sid);
   res.json(SignUpResponse.parse({ user: sessionData.user }));
@@ -117,7 +105,7 @@ router.post("/auth/login", async (req: Request, res: Response) => {
     return;
   }
 
-  const sessionData: SessionData = { user: toSessionUser(dbUser) };
+  const sessionData: SessionData = { user: toAuthUser(dbUser) };
   const sid = await createSession(sessionData);
   setSessionCookie(res, sid);
   res.json(LogInResponse.parse({ user: sessionData.user }));
@@ -159,7 +147,7 @@ router.post("/auth/change-password", async (req: Request, res: Response) => {
     .where(eq(usersTable.id, dbUser.id))
     .returning();
 
-  res.json(ChangeMyPasswordResponse.parse({ user: toSessionUser(updated) }));
+  res.json(ChangeMyPasswordResponse.parse({ user: toAuthUser(updated) }));
 });
 
 export default router;

@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import { type Request, type Response } from "express";
-import { db, sessionsTable } from "@workspace/db";
+import { db, sessionsTable, usersTable, type User } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import type { AuthUser } from "@workspace/api-zod";
 
@@ -9,6 +9,24 @@ export const SESSION_TTL = 7 * 24 * 60 * 60 * 1000;
 
 export interface SessionData {
   user: AuthUser;
+}
+
+export function toAuthUser(dbUser: User): AuthUser {
+  return {
+    id: dbUser.id,
+    email: dbUser.email,
+    firstName: dbUser.firstName,
+    lastName: dbUser.lastName,
+    profileImageUrl: dbUser.profileImageUrl,
+    role: dbUser.role,
+    accountStatus: dbUser.accountStatus,
+    mustChangePassword: dbUser.mustChangePassword,
+  };
+}
+
+export async function loadAuthUser(userId: string): Promise<AuthUser | null> {
+  const [dbUser] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
+  return dbUser ? toAuthUser(dbUser) : null;
 }
 
 export async function createSession(data: SessionData): Promise<string> {
