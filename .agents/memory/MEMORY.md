@@ -1,1 +1,2 @@
 - [Design subagent scope risk](design-subagent-scope.md) — async DESIGN subagent given a full-app creative brief only did theme/CSS, left pages as placeholders; verify output before trusting full delegation.
+- [Workflow/artifact registry desync recovery](workflow-recovery.md) — when listWorkflows/listArtifacts return empty despite code+artifact.toml existing, use configureWorkflow with the toml's declared ports instead of createArtifact.
