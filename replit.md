@@ -25,14 +25,20 @@ lib/replit-auth-web/         Shared Replit Auth React hook
 scripts/                     CLI utilities (promote-user, etc.)
 ```
 
-## Running locally
+## Running on Replit
+
+Dependencies are installed and the database schema is synced. The two managed workflows start automatically:
+
+| Workflow | Command | Port |
+|---|---|---|
+| `artifacts/api-server: API Server` | `pnpm --filter @workspace/api-server run dev` | 8080 |
+| `artifacts/mpesa-business-loans: web` | `pnpm --filter @workspace/mpesa-business-loans run dev` | 22025 |
+
+To re-run setup from scratch:
 
 ```bash
-pnpm install                          # install all workspace deps
-pnpm --filter @workspace/db push      # sync DB schema
-# start both servers (two terminals or via Replit workflows):
-pnpm --filter @workspace/api-server dev
-pnpm --filter @workspace/mpesa-business-loans dev
+pnpm install                       # install all workspace deps
+pnpm --filter @workspace/db push   # sync DB schema
 ```
 
 ## First-time admin setup
