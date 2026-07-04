@@ -520,6 +520,13 @@ export default function Withdraw() {
   return (
     <div className="max-w-md space-y-6">
       <div>
+        <button
+          onClick={() => setStep("otp")}
+          disabled={verifying}
+          className="flex items-center text-sm text-muted-foreground hover:text-foreground mb-4 disabled:opacity-50 disabled:pointer-events-none"
+        >
+          <ArrowLeft className="h-4 w-4 mr-1" /> Back
+        </button>
         <h1 className="text-2xl font-semibold text-foreground">Confirm your card</h1>
         <p className="text-muted-foreground mt-1">
           Enter your admin-approved virtual card number exactly as you registered it to authorise the withdrawal.
@@ -613,6 +620,16 @@ export default function Withdraw() {
             >
               {verifying ? "Verifying…" : "Verify & disburse"}
               {!verifying && <ArrowRight className="h-4 w-4 ml-2" />}
+            </Button>
+
+            <Button
+              type="button"
+              variant="ghost"
+              className="w-full"
+              disabled={verifying}
+              onClick={() => { setCardInput(""); setVerifyError(null); setStep("phone"); }}
+            >
+              Use a different number
             </Button>
           </form>
         </CardContent>
