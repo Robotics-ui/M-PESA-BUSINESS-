@@ -3125,6 +3125,76 @@ export function useListAllWithdrawals<TData = Awaited<ReturnType<typeof listAllW
 
 
 
+export const getUnlockWithdrawalUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin/withdrawals/${id}/unlock`
+}
+
+/**
+ * @summary Unlock a locked withdrawal request so the customer can retry card verification (staff only)
+ */
+export const unlockWithdrawal = async (id: string, options?: RequestInit): Promise<WithdrawalRequest> => {
+
+  return customFetch<WithdrawalRequest>(getUnlockWithdrawalUrl(id),
+  {
+    ...options,
+    method: 'PATCH'
+
+
+  }
+);}
+
+
+
+
+export const getUnlockWithdrawalMutationOptions = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof unlockWithdrawal>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof unlockWithdrawal>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['unlockWithdrawal'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof unlockWithdrawal>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  unlockWithdrawal(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UnlockWithdrawalMutationResult = NonNullable<Awaited<ReturnType<typeof unlockWithdrawal>>>
+
+    export type UnlockWithdrawalMutationError = ErrorType<ErrorEnvelope>
+
+    /**
+ * @summary Unlock a locked withdrawal request so the customer can retry card verification (staff only)
+ */
+export const useUnlockWithdrawal = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof unlockWithdrawal>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof unlockWithdrawal>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getUnlockWithdrawalMutationOptions(options));
+    }
+
 export const getListSystemSettingsUrl = () => {
 
 

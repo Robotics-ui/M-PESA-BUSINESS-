@@ -40,6 +40,7 @@ const STAFF_NAV: NavItem[] = [
   { href: "/admin/customers", label: "Customers", icon: Users },
   { href: "/admin/loans", label: "Loan applications", icon: ClipboardList },
   { href: "/admin/virtual-cards", label: "Virtual cards", icon: CreditCard },
+  { href: "/admin/withdrawals", label: "Withdrawals", icon: Wallet },
   { href: "/admin/audit-logs", label: "Audit logs", icon: ScrollText },
 ];
 

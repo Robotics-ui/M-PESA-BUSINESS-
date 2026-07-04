@@ -25,6 +25,7 @@ import AdminLoans from "@/pages/admin/Loans";
 import AdminAuditLogs from "@/pages/admin/AuditLogs";
 import AdminSettings from "@/pages/admin/Settings";
 import AdminVirtualCards from "@/pages/admin/VirtualCards";
+import AdminWithdrawals from "@/pages/admin/Withdrawals";
 
 const queryClient = new QueryClient();
 
@@ -66,6 +67,7 @@ function StaffRoutes({ isSuperAdmin }: { isSuperAdmin: boolean }) {
         <Route path="/admin/customers/:id" component={AdminCustomerDetail} />
         <Route path="/admin/loans" component={AdminLoans} />
         <Route path="/admin/virtual-cards" component={AdminVirtualCards} />
+        <Route path="/admin/withdrawals" component={AdminWithdrawals} />
         <Route path="/admin/audit-logs" component={AdminAuditLogs} />
         {isSuperAdmin && <Route path="/admin/settings" component={AdminSettings} />}
         <Route path="/">

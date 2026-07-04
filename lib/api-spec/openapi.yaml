@@ -865,6 +865,35 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/WithdrawalRequestWithCustomer'
+  /admin/withdrawals/{id}/unlock:
+    patch:
+      tags: [Admin]
+      operationId: unlockWithdrawal
+      summary: Unlock a locked withdrawal request so the customer can retry card verification (staff only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Withdrawal unlocked.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WithdrawalRequest'
+        '404':
+          description: Withdrawal request not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '409':
+          description: Withdrawal is not locked.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
 
   # ---------- Settings ----------
   /admin/settings:

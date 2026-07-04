@@ -1007,6 +1007,28 @@ export const ListAllWithdrawalsResponse = zod.array(ListAllWithdrawalsResponseIt
 
 
 /**
+ * @summary Unlock a locked withdrawal request so the customer can retry card verification (staff only)
+ */
+export const UnlockWithdrawalParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const UnlockWithdrawalResponse = zod.object({
+  "id": zod.string(),
+  "customerId": zod.string(),
+  "amount": zod.string(),
+  "mpesaPhone": zod.string(),
+  "virtualCardId": zod.string(),
+  "status": zod.enum(['pending_verification', 'disbursed', 'failed', 'locked']),
+  "otpVerified": zod.boolean(),
+  "verificationAttempts": zod.number(),
+  "loanId": zod.string().nullable(),
+  "lockedAt": zod.coerce.date().nullable(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
  * @summary List system settings
  */
 export const ListSystemSettingsResponseItem = zod.object({

@@ -24,6 +24,8 @@ import {
   VerifyWithdrawalCardBody,
   VerifyWithdrawalCardResponse,
   ListAllWithdrawalsResponse,
+  UnlockWithdrawalParams,
+  UnlockWithdrawalResponse,
 } from "@workspace/api-zod";
 
 const router: IRouter = Router();
@@ -636,6 +638,67 @@ router.get(
       .orderBy(desc(withdrawalRequestsTable.createdAt));
 
     res.json(ListAllWithdrawalsResponse.parse(withdrawals));
+  },
+);
+
+/**
+ * PATCH /admin/withdrawals/:id/unlock
+ * Unlock a locked withdrawal request so the customer can retry card
+ * verification (staff only). Resets the attempt counter and clears lockedAt.
+ */
+router.patch(
+  "/admin/withdrawals/:id/unlock",
+  async (req: Request, res: Response): Promise<void> => {
+    if (!requireStaff(req, res)) return;
+
+    const params = UnlockWithdrawalParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+
+    const [withdrawal] = await db
+      .select()
+      .from(withdrawalRequestsTable)
+      .where(eq(withdrawalRequestsTable.id, params.data.id));
+
+    if (!withdrawal) {
+      res.status(404).json({ error: "Withdrawal request not found." });
+      return;
+    }
+
+    if (withdrawal.status !== "locked") {
+      res.status(409).json({ error: `Withdrawal is not locked (status: ${withdrawal.status}).` });
+      return;
+    }
+
+    const [updated] = await db
+      .update(withdrawalRequestsTable)
+      .set({
+        status: "pending_verification",
+        verificationAttempts: 0,
+        lockedAt: null,
+      })
+      .where(eq(withdrawalRequestsTable.id, withdrawal.id))
+      .returning();
+
+    await db.insert(auditLogsTable).values({
+      userId: req.user!.id,
+      action: "withdrawal.unlocked",
+      entityType: "withdrawal_request",
+      entityId: withdrawal.id,
+      details: null,
+    });
+
+    await db.insert(notificationsTable).values({
+      userId: withdrawal.customerId,
+      channel: "in_app",
+      title: "Withdrawal unlocked",
+      message: "Your withdrawal has been unlocked by our support team. You can now retry verifying your virtual card.",
+      status: "sent",
+    });
+
+    res.json(UnlockWithdrawalResponse.parse(updated));
   },
 );
 
