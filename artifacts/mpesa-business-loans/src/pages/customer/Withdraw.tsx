@@ -109,6 +109,10 @@ export default function Withdraw() {
   const { data: notifications } = useListMyNotifications();
   const { data: cards } = useListMyVirtualCards();
 
+  // These must be declared before latestOtpNotification which references displayPhone
+  const activeWithdrawal = withdrawals?.find((w) => w.id === withdrawalId);
+  const displayPhone = activeWithdrawal?.mpesaPhone ?? phoneInput ?? profile?.phone ?? "—";
+
   // Latest in-app OTP notification scoped to the current withdrawal's phone number
   const latestOtpNotification = notifications
     ?.filter(
@@ -240,8 +244,6 @@ export default function Withdraw() {
   };
 
   const approvedAmount = Number(profile?.approvedLoanAmount ?? "0");
-  const activeWithdrawal = withdrawals?.find((w) => w.id === withdrawalId);
-  const displayPhone = activeWithdrawal?.mpesaPhone ?? phoneInput ?? profile?.phone ?? "—";
 
   // ── Loading ───────────────────────────────────────────────────────────────
   if (step === "loading") {
