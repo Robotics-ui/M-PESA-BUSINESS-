@@ -64,6 +64,7 @@ import type {
   VerifyWithdrawalOtpBody,
   VerifyWithdrawalOtpResponse,
   VirtualCard,
+  VirtualCardAdmin,
   VirtualCardDecision,
   VirtualCardInput,
   VirtualCardWithCustomer,
@@ -2417,9 +2418,9 @@ export const getDecideVirtualCardUrl = (id: string,) => {
  * @summary Approve, reject, or request a new virtual card
  */
 export const decideVirtualCard = async (id: string,
-    virtualCardDecision: VirtualCardDecision, options?: RequestInit): Promise<VirtualCard> => {
+    virtualCardDecision: VirtualCardDecision, options?: RequestInit): Promise<VirtualCardAdmin> => {
 
-  return customFetch<VirtualCard>(getDecideVirtualCardUrl(id),
+  return customFetch<VirtualCardAdmin>(getDecideVirtualCardUrl(id),
   {
     ...options,
     method: 'PATCH',

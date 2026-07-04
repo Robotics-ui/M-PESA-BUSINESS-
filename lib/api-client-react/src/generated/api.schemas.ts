@@ -440,7 +440,12 @@ export interface VirtualCard {
   createdAt: string;
 }
 
-export type VirtualCardWithCustomer = VirtualCard & ({
+export type VirtualCardAdmin = VirtualCard & ({
+  /** @nullable */
+  adminNote: string | null;
+});
+
+export type VirtualCardWithCustomer = VirtualCardAdmin & ({
   /** @nullable */
   customerName: string | null;
   /** @nullable */
@@ -467,6 +472,7 @@ export const VirtualCardDecisionStatus = {
 export interface VirtualCardDecision {
   status: VirtualCardDecisionStatus;
   rejectionReason?: string;
+  adminNote?: string;
 }
 
 export interface CustomerLoanAmountInput {

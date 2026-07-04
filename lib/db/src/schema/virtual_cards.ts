@@ -16,6 +16,7 @@ export const virtualCardsTable = pgTable("virtual_cards", {
   bank: varchar("bank"),
   status: varchar("status", { enum: virtualCardStatuses }).notNull().default("pending"),
   rejectionReason: text("rejection_reason"),
+  adminNote: text("admin_note"),
   approvedBy: varchar("approved_by").references(() => usersTable.id),
   approvedAt: timestamp("approved_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

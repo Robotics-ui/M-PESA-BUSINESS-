@@ -56,6 +56,7 @@ export default function CustomerDetail() {
   const [selectedCard, setSelectedCard] = useState<string | null>(null);
   const [cardDecision, setCardDecision] = useState<CardDecisionStatus>("approved");
   const [cardReason, setCardReason] = useState("");
+  const [cardAdminNote, setCardAdminNote] = useState("");
 
   const { data: customer, isLoading } = useGetCustomerDetail(id, {
     query: { enabled: !!id, queryKey: getGetCustomerDetailQueryKey(id) },
@@ -391,7 +392,7 @@ export default function CustomerDetail() {
                             size="sm"
                             variant="outline"
                             className="text-green-700 border-green-200 hover:bg-green-50"
-                            onClick={() => { setSelectedCard(card.id); setCardDecision("approved"); setCardReason(""); }}
+                            onClick={() => { setSelectedCard(card.id); setCardDecision("approved"); setCardReason(""); setCardAdminNote(""); }}
                           >
                             <CheckCircle2 className="h-3.5 w-3.5" />
                           </Button>
@@ -399,14 +400,14 @@ export default function CustomerDetail() {
                             size="sm"
                             variant="outline"
                             className="text-red-700 border-red-200 hover:bg-red-50"
-                            onClick={() => { setSelectedCard(card.id); setCardDecision("rejected"); setCardReason(""); }}
+                            onClick={() => { setSelectedCard(card.id); setCardDecision("rejected"); setCardReason(""); setCardAdminNote(""); }}
                           >
                             <XCircle className="h-3.5 w-3.5" />
                           </Button>
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => { setSelectedCard(card.id); setCardDecision("request_new"); setCardReason(""); }}
+                            onClick={() => { setSelectedCard(card.id); setCardDecision("request_new"); setCardReason(""); setCardAdminNote(""); }}
                           >
                             <RefreshCw className="h-3.5 w-3.5" />
                           </Button>
@@ -492,7 +493,7 @@ export default function CustomerDetail() {
       </Card>
 
       {/* Card decision modal */}
-      <Dialog open={!!selectedCard} onOpenChange={(open) => !open && setSelectedCard(null)}>
+      <Dialog open={!!selectedCard} onOpenChange={(open) => { if (!open) { setSelectedCard(null); setCardReason(""); setCardAdminNote(""); } }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
@@ -501,19 +502,25 @@ export default function CustomerDetail() {
           </DialogHeader>
           {cardDecision !== "approved" && (
             <div className="space-y-2">
-              <Label>Reason <span className="text-muted-foreground text-xs">(optional)</span></Label>
+              <Label>Reason <span className="text-muted-foreground text-xs">(optional — sent to customer)</span></Label>
               <Textarea value={cardReason} onChange={(e) => setCardReason(e.target.value)} rows={3}
                 placeholder={cardDecision === "rejected" ? "e.g. Card name does not match customer ID" : "e.g. Please provide a debit card"} />
             </div>
           )}
+          <div className="space-y-2">
+            <Label>Internal note <span className="text-muted-foreground text-xs">(optional — admin only)</span></Label>
+            <Textarea value={cardAdminNote} onChange={(e) => setCardAdminNote(e.target.value)} rows={2}
+              placeholder="e.g. Verified against KYC documents on file" />
+          </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setSelectedCard(null)}>Cancel</Button>
+            <Button variant="outline" onClick={() => { setSelectedCard(null); setCardReason(""); setCardAdminNote(""); }}>Cancel</Button>
             <Button
               disabled={decidingCard}
               variant={cardDecision === "approved" ? "default" : "destructive"}
               onClick={() => {
                 if (!selectedCard) return;
-                decideCard({ id: selectedCard, data: { status: cardDecision, rejectionReason: cardReason || undefined } });
+                decideCard({ id: selectedCard, data: { status: cardDecision, rejectionReason: cardReason || undefined, adminNote: cardAdminNote || undefined } });
+                setCardAdminNote("");
               }}
             >
               {decidingCard ? "Saving…" : "Confirm"}

@@ -746,6 +746,8 @@ export const ListAllVirtualCardsResponseItem = zod.object({
   "approvedAt": zod.coerce.date().nullable(),
   "createdAt": zod.coerce.date()
 }).and(zod.object({
+  "adminNote": zod.string().nullable()
+})).and(zod.object({
   "customerName": zod.string().nullable(),
   "customerEmail": zod.string().nullable()
 }))
@@ -761,7 +763,8 @@ export const DecideVirtualCardParams = zod.object({
 
 export const DecideVirtualCardBody = zod.object({
   "status": zod.enum(['approved', 'rejected', 'request_new']),
-  "rejectionReason": zod.string().optional()
+  "rejectionReason": zod.string().optional(),
+  "adminNote": zod.string().optional()
 })
 
 export const DecideVirtualCardResponse = zod.object({
@@ -775,7 +778,9 @@ export const DecideVirtualCardResponse = zod.object({
   "approvedBy": zod.string().nullable(),
   "approvedAt": zod.coerce.date().nullable(),
   "createdAt": zod.coerce.date()
-})
+}).and(zod.object({
+  "adminNote": zod.string().nullable()
+}))
 
 
 /**

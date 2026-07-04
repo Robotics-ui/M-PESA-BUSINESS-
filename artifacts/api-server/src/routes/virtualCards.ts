@@ -42,7 +42,18 @@ router.get("/virtual-cards/mine", async (req: Request, res: Response): Promise<v
   if (!requireAuth(req, res)) return;
 
   const cards = await db
-    .select()
+    .select({
+      id: virtualCardsTable.id,
+      customerId: virtualCardsTable.customerId,
+      cardNumber: virtualCardsTable.cardNumber,
+      cardHolderName: virtualCardsTable.cardHolderName,
+      bank: virtualCardsTable.bank,
+      status: virtualCardsTable.status,
+      rejectionReason: virtualCardsTable.rejectionReason,
+      approvedBy: virtualCardsTable.approvedBy,
+      approvedAt: virtualCardsTable.approvedAt,
+      createdAt: virtualCardsTable.createdAt,
+    })
     .from(virtualCardsTable)
     .where(eq(virtualCardsTable.customerId, req.user!.id))
     .orderBy(desc(virtualCardsTable.createdAt));
@@ -77,7 +88,8 @@ router.post("/virtual-cards", async (req: Request, res: Response): Promise<void>
     details: null,
   });
 
-  res.status(201).json(CreateVirtualCardResponse.parse({ ...card, cardNumber: maskCardNumber(card.cardNumber) }));
+  const { adminNote: _omit, ...cardForCustomer } = card;
+  res.status(201).json(CreateVirtualCardResponse.parse({ ...cardForCustomer, cardNumber: maskCardNumber(card.cardNumber) }));
 });
 
 export default router;

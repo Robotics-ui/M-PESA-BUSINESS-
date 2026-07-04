@@ -595,6 +595,7 @@ router.get(
         bank: virtualCardsTable.bank,
         status: virtualCardsTable.status,
         rejectionReason: virtualCardsTable.rejectionReason,
+        adminNote: virtualCardsTable.adminNote,
         approvedBy: virtualCardsTable.approvedBy,
         approvedAt: virtualCardsTable.approvedAt,
         createdAt: virtualCardsTable.createdAt,
@@ -627,7 +628,7 @@ router.patch(
       return;
     }
 
-    const { status, rejectionReason } = parsed.data;
+    const { status, rejectionReason, adminNote } = parsed.data;
     // "request_new" is stored as "rejected" — customer must resubmit
     const storedStatus = status === "request_new" ? "rejected" : status;
 
@@ -636,6 +637,7 @@ router.patch(
       .set({
         status: storedStatus,
         rejectionReason: rejectionReason ?? null,
+        adminNote: adminNote ?? null,
         approvedBy: storedStatus === "approved" ? req.user!.id : null,
         approvedAt: storedStatus === "approved" ? new Date() : null,
       })

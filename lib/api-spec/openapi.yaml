@@ -651,7 +651,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/VirtualCard'
+                $ref: '#/components/schemas/VirtualCardAdmin'
         '404':
           description: Not found.
           content:
@@ -1389,9 +1389,16 @@ components:
         approvedBy: { type: [string, 'null'] }
         approvedAt: { type: [string, 'null'], format: date-time }
         createdAt: { type: string, format: date-time }
-    VirtualCardWithCustomer:
+    VirtualCardAdmin:
       allOf:
         - $ref: '#/components/schemas/VirtualCard'
+        - type: object
+          required: [adminNote]
+          properties:
+            adminNote: { type: [string, 'null'] }
+    VirtualCardWithCustomer:
+      allOf:
+        - $ref: '#/components/schemas/VirtualCardAdmin'
         - type: object
           required: [customerName, customerEmail]
           properties:
@@ -1412,6 +1419,8 @@ components:
           type: string
           enum: [approved, rejected, request_new]
         rejectionReason:
+          type: string
+        adminNote:
           type: string
 
     CustomerLoanAmountInput:

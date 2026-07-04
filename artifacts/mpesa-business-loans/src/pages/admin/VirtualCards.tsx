@@ -5,7 +5,7 @@ import {
   getListAllVirtualCardsQueryKey,
   useDecideVirtualCard,
 } from "@workspace/api-client-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -37,6 +37,7 @@ export default function VirtualCards() {
   const [selected, setSelected] = useState<VirtualCardWithCustomer | null>(null);
   const [decisionStatus, setDecisionStatus] = useState<DecisionStatus>("approved");
   const [reason, setReason] = useState("");
+  const [adminNote, setAdminNote] = useState("");
 
   const { data: cards, isLoading } = useListAllVirtualCards(
     statusFilter === "all" ? undefined : { status: statusFilter as any },
@@ -49,6 +50,7 @@ export default function VirtualCards() {
         toast({ title: "Decision saved" });
         setSelected(null);
         setReason("");
+        setAdminNote("");
       },
       onError: () => toast({ title: "Failed to save decision", variant: "destructive" }),
     },
@@ -58,11 +60,19 @@ export default function VirtualCards() {
     setSelected(card);
     setDecisionStatus(status);
     setReason("");
+    setAdminNote("");
   };
 
   const confirm = () => {
     if (!selected) return;
-    decide({ id: selected.id, data: { status: decisionStatus, rejectionReason: reason || undefined } });
+    decide({
+      id: selected.id,
+      data: {
+        status: decisionStatus,
+        rejectionReason: reason || undefined,
+        adminNote: adminNote || undefined,
+      },
+    });
   };
 
   return (
@@ -124,6 +134,9 @@ export default function VirtualCards() {
                       <StatusBadge status={card.status} />
                       {card.rejectionReason && (
                         <p className="text-xs text-muted-foreground mt-1">{card.rejectionReason}</p>
+                      )}
+                      {card.adminNote && (
+                        <p className="text-xs text-muted-foreground mt-1 italic">Note: {card.adminNote}</p>
                       )}
                     </TableCell>
                     <TableCell className="text-muted-foreground text-sm">{formatDate(card.createdAt)}</TableCell>
@@ -208,6 +221,19 @@ export default function VirtualCards() {
                   />
                 </div>
               )}
+
+              <div className="space-y-2">
+                <Label>
+                  Internal note{" "}
+                  <span className="text-muted-foreground text-xs">(optional — admin only)</span>
+                </Label>
+                <Textarea
+                  value={adminNote}
+                  onChange={(e) => setAdminNote(e.target.value)}
+                  placeholder="e.g. Verified against KYC documents on file"
+                  rows={2}
+                />
+              </div>
             </div>
           )}
 
