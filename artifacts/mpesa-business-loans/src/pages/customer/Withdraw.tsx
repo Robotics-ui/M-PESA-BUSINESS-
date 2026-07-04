@@ -38,6 +38,8 @@ import {
   RefreshCw,
   ThumbsUp,
   ThumbsDown,
+  CalendarX,
+  CalendarClock,
 } from "lucide-react";
 
 // ── Step progress bar ─────────────────────────────────────────────────────────
@@ -87,7 +89,7 @@ function StepProgress({ current }: { current: string }) {
   );
 }
 
-type Step = "loading" | "phone" | "otp" | "verify" | "success" | "locked" | "error";
+type Step = "loading" | "phone" | "otp" | "verify" | "success" | "locked" | "expired" | "error";
 
 // Receipt sub-states (shown inside the "success" view)
 type ReceiptPhase =
@@ -170,7 +172,15 @@ export default function Withdraw() {
       setWithdrawalId(latest.id);
       setPhoneInput(latest.mpesaPhone);
       setAttemptsLeft(3 - latest.verificationAttempts);
-      setStep(latest.otpVerified ? "verify" : "otp");
+      // Check client-side if it has expired (server will also enforce)
+      if (latest.expiresAt && new Date(latest.expiresAt) < new Date()) {
+        setStep("expired");
+      } else {
+        setStep(latest.otpVerified ? "verify" : "otp");
+      }
+    } else if (latest?.status === "expired") {
+      setWithdrawalId(latest.id);
+      setStep("expired");
     } else if (latest?.status === "disbursed") {
       setWithdrawalId(latest.id);
       setReceiptData({
@@ -299,6 +309,95 @@ export default function Withdraw() {
   };
 
   const approvedAmount = Number(profile?.approvedLoanAmount ?? "0");
+
+  // Helper: returns days remaining until expiresAt (null if not set)
+  const expiresAt = activeWithdrawal?.expiresAt
+    ? new Date(activeWithdrawal.expiresAt as unknown as string)
+    : null;
+  const daysRemaining = expiresAt
+    ? Math.ceil((expiresAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+    : null;
+
+  // ── Expired ───────────────────────────────────────────────────────────────
+  if (step === "expired") {
+    const latestWithdrawal = withdrawals?.[0];
+    const expiredAt = latestWithdrawal?.expiresAt
+      ? new Date(latestWithdrawal.expiresAt as unknown as string)
+      : null;
+    const retryAfterDays = latestWithdrawal?.retryAfterDays ?? null;
+    const retryAllowedAt =
+      expiredAt && retryAfterDays != null && retryAfterDays > 0
+        ? new Date(expiredAt.getTime() + retryAfterDays * 24 * 60 * 60 * 1000)
+        : null;
+    const canRetryNow = retryAllowedAt ? new Date() >= retryAllowedAt : retryAfterDays === 0 || retryAfterDays == null;
+    const retryDaysLeft = retryAllowedAt
+      ? Math.ceil((retryAllowedAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+      : 0;
+
+    return (
+      <div className="max-w-md space-y-6">
+        <div>
+          <h1 className="text-2xl font-semibold text-foreground">Withdrawal expired</h1>
+          <p className="text-muted-foreground mt-1">Your withdrawal request has passed its deadline.</p>
+        </div>
+        <Card className="border-gray-200 bg-gray-50">
+          <CardContent className="pt-6 space-y-4">
+            <div className="flex items-center justify-center">
+              <div className="h-14 w-14 rounded-full bg-gray-100 flex items-center justify-center">
+                <CalendarX className="h-7 w-7 text-gray-500" />
+              </div>
+            </div>
+            <div className="text-center space-y-1">
+              <p className="font-semibold text-gray-800">Request expired</p>
+              {expiredAt && (
+                <p className="text-sm text-gray-600">
+                  This withdrawal expired on{" "}
+                  <span className="font-medium">{formatDateTime(expiredAt.toISOString())}</span>.
+                </p>
+              )}
+            </div>
+
+            {retryAllowedAt && !canRetryNow && (
+              <div className="rounded-md bg-orange-50 border border-orange-200 px-4 py-3 text-sm text-orange-800 text-center space-y-1">
+                <CalendarClock className="h-5 w-5 mx-auto text-orange-600 mb-1" />
+                <p className="font-semibold">Retry available in {retryDaysLeft} day{retryDaysLeft !== 1 ? "s" : ""}</p>
+                <p className="text-xs text-orange-700">
+                  You can apply for a new withdrawal from{" "}
+                  <span className="font-medium">{formatDateTime(retryAllowedAt.toISOString())}</span>.
+                </p>
+              </div>
+            )}
+
+            {canRetryNow && (
+              <div className="rounded-md bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800 text-center space-y-1">
+                <CheckCircle2 className="h-5 w-5 mx-auto text-green-600 mb-1" />
+                <p className="font-semibold">You can apply again now</p>
+                <p className="text-xs text-green-700">
+                  Start a new withdrawal request when you're ready.
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {canRetryNow && (
+          <Button
+            className="w-full"
+            onClick={() => {
+              setStep("phone");
+              setWithdrawalId(null);
+              setPhoneInput(profile?.phone || "");
+            }}
+          >
+            Start new withdrawal <ArrowRight className="h-4 w-4 ml-2" />
+          </Button>
+        )}
+        <Button variant="outline" className="w-full" onClick={() => navigate("/dashboard")}>
+          <ArrowLeft className="h-4 w-4 mr-2" /> Back to dashboard
+        </Button>
+      </div>
+    );
+  }
 
   // ── Loading ───────────────────────────────────────────────────────────────
   if (step === "loading") {
@@ -706,6 +805,16 @@ export default function Withdraw() {
 
         <StepProgress current="otp" />
 
+        {/* Expiry countdown banner */}
+        {daysRemaining !== null && daysRemaining <= 3 && daysRemaining > 0 && (
+          <div className="flex items-start gap-2 rounded-md bg-orange-50 border border-orange-200 px-3 py-2 text-sm text-orange-800">
+            <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0 text-orange-600" />
+            <span>
+              <span className="font-semibold">Deadline soon:</span> your withdrawal request expires in {daysRemaining} day{daysRemaining !== 1 ? "s" : ""}. Complete the steps before it expires.
+            </span>
+          </div>
+        )}
+
         {latestOtpNotification && (
           <Card className="border-blue-200 bg-blue-50">
             <CardContent className="pt-4 pb-4">
@@ -797,6 +906,16 @@ export default function Withdraw() {
       </div>
 
       <StepProgress current="verify" />
+
+      {/* Expiry countdown banner */}
+      {daysRemaining !== null && daysRemaining <= 3 && daysRemaining > 0 && (
+        <div className="flex items-start gap-2 rounded-md bg-orange-50 border border-orange-200 px-3 py-2 text-sm text-orange-800">
+          <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0 text-orange-600" />
+          <span>
+            <span className="font-semibold">Deadline soon:</span> your withdrawal request expires in {daysRemaining} day{daysRemaining !== 1 ? "s" : ""}. Complete the steps before it expires.
+          </span>
+        </div>
+      )}
 
       <Card className="bg-muted/40">
         <CardContent className="pt-4 pb-4 space-y-2 text-sm">

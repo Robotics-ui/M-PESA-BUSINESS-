@@ -9,6 +9,7 @@ export const withdrawalStatuses = [
   "disbursed",
   "failed",
   "locked",
+  "expired",
 ] as const;
 
 export const withdrawalReceiptStatuses = ["pending", "confirmed", "not_received"] as const;
@@ -36,6 +37,8 @@ export const withdrawalRequestsTable = pgTable("withdrawal_requests", {
   verificationAttempts: integer("verification_attempts").notNull().default(0),
   loanId: varchar("loan_id").references(() => loansTable.id, { onDelete: "set null" }),
   lockedAt: timestamp("locked_at", { withTimezone: true }),
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
+  retryAfterDays: integer("retry_after_days"),
   receiptStatus: varchar("receipt_status", { enum: withdrawalReceiptStatuses })
     .notNull()
     .default("pending"),

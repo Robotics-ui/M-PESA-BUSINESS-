@@ -37,6 +37,7 @@ import type {
   Document,
   DocumentInput,
   ErrorEnvelope,
+  ExtendWithdrawalBody,
   HealthStatus,
   InitiateWithdrawalBody,
   ListAllLoanApplicationsParams,
@@ -60,6 +61,7 @@ import type {
   RequestUploadUrlResult,
   RequestWithdrawalOtpResponse,
   ResolveWithdrawalIssueBody,
+  SetWithdrawalRetryPeriodBody,
   SignupInput,
   SystemSetting,
   SystemSettingInput,
@@ -3268,6 +3270,148 @@ export function useListAllWithdrawals<TData = Awaited<ReturnType<typeof listAllW
 
 
 
+
+export const getExtendWithdrawalUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin/withdrawals/${id}/extend`
+}
+
+/**
+ * @summary Extend the expiry deadline of a withdrawal request by adding days (staff only)
+ */
+export const extendWithdrawal = async (id: string,
+    extendWithdrawalBody: ExtendWithdrawalBody, options?: RequestInit): Promise<WithdrawalRequest> => {
+
+  return customFetch<WithdrawalRequest>(getExtendWithdrawalUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(extendWithdrawalBody)
+  }
+);}
+
+
+
+
+export const getExtendWithdrawalMutationOptions = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof extendWithdrawal>>, TError,{id: string;data: BodyType<ExtendWithdrawalBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof extendWithdrawal>>, TError,{id: string;data: BodyType<ExtendWithdrawalBody>}, TContext> => {
+
+const mutationKey = ['extendWithdrawal'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof extendWithdrawal>>, {id: string;data: BodyType<ExtendWithdrawalBody>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  extendWithdrawal(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ExtendWithdrawalMutationResult = NonNullable<Awaited<ReturnType<typeof extendWithdrawal>>>
+    export type ExtendWithdrawalMutationBody = BodyType<ExtendWithdrawalBody>
+    export type ExtendWithdrawalMutationError = ErrorType<ErrorEnvelope>
+
+    /**
+ * @summary Extend the expiry deadline of a withdrawal request by adding days (staff only)
+ */
+export const useExtendWithdrawal = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof extendWithdrawal>>, TError,{id: string;data: BodyType<ExtendWithdrawalBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof extendWithdrawal>>,
+        TError,
+        {id: string;data: BodyType<ExtendWithdrawalBody>},
+        TContext
+      > => {
+      return useMutation(getExtendWithdrawalMutationOptions(options));
+    }
+
+export const getSetWithdrawalRetryPeriodUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin/withdrawals/${id}/set-retry-period`
+}
+
+/**
+ * @summary Set the number of days a customer must wait after expiry before retrying (staff only)
+ */
+export const setWithdrawalRetryPeriod = async (id: string,
+    setWithdrawalRetryPeriodBody: SetWithdrawalRetryPeriodBody, options?: RequestInit): Promise<WithdrawalRequest> => {
+
+  return customFetch<WithdrawalRequest>(getSetWithdrawalRetryPeriodUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(setWithdrawalRetryPeriodBody)
+  }
+);}
+
+
+
+
+export const getSetWithdrawalRetryPeriodMutationOptions = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setWithdrawalRetryPeriod>>, TError,{id: string;data: BodyType<SetWithdrawalRetryPeriodBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof setWithdrawalRetryPeriod>>, TError,{id: string;data: BodyType<SetWithdrawalRetryPeriodBody>}, TContext> => {
+
+const mutationKey = ['setWithdrawalRetryPeriod'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof setWithdrawalRetryPeriod>>, {id: string;data: BodyType<SetWithdrawalRetryPeriodBody>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  setWithdrawalRetryPeriod(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SetWithdrawalRetryPeriodMutationResult = NonNullable<Awaited<ReturnType<typeof setWithdrawalRetryPeriod>>>
+    export type SetWithdrawalRetryPeriodMutationBody = BodyType<SetWithdrawalRetryPeriodBody>
+    export type SetWithdrawalRetryPeriodMutationError = ErrorType<ErrorEnvelope>
+
+    /**
+ * @summary Set the number of days a customer must wait after expiry before retrying (staff only)
+ */
+export const useSetWithdrawalRetryPeriod = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setWithdrawalRetryPeriod>>, TError,{id: string;data: BodyType<SetWithdrawalRetryPeriodBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof setWithdrawalRetryPeriod>>,
+        TError,
+        {id: string;data: BodyType<SetWithdrawalRetryPeriodBody>},
+        TContext
+      > => {
+      return useMutation(getSetWithdrawalRetryPeriodMutationOptions(options));
+    }
 
 export const getUnlockWithdrawalUrl = (id: string,) => {
 

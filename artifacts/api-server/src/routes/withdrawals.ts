@@ -32,6 +32,12 @@ import {
   ResolveWithdrawalIssueParams,
   ResolveWithdrawalIssueBody,
   ResolveWithdrawalIssueResponse,
+  ExtendWithdrawalParams,
+  ExtendWithdrawalBody,
+  ExtendWithdrawalResponse,
+  SetWithdrawalRetryPeriodParams,
+  SetWithdrawalRetryPeriodBody,
+  SetWithdrawalRetryPeriodResponse,
 } from "@workspace/api-zod";
 
 const router: IRouter = Router();
@@ -153,6 +159,33 @@ router.post("/withdrawals", async (req: Request, res: Response): Promise<void> =
       });
       return;
     }
+
+    // Auto-expire a pending_verification request that has passed its deadline
+    if (latest.status === "pending_verification" && latest.expiresAt && latest.expiresAt < new Date()) {
+      await db
+        .update(withdrawalRequestsTable)
+        .set({ status: "expired" })
+        .where(eq(withdrawalRequestsTable.id, latest.id));
+      latest.status = "expired";
+    }
+
+    if (latest.status === "expired") {
+      // If admin set a retry-after period, enforce it
+      if (latest.retryAfterDays != null && latest.retryAfterDays > 0 && latest.expiresAt) {
+        const retryAllowedAt = new Date(latest.expiresAt);
+        retryAllowedAt.setDate(retryAllowedAt.getDate() + latest.retryAfterDays);
+        if (new Date() < retryAllowedAt) {
+          const days = Math.ceil((retryAllowedAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+          res.status(409).json({
+            error: `Your withdrawal expired. You can apply again in ${days} day${days === 1 ? "" : "s"} (${retryAllowedAt.toISOString().split("T")[0]}).`,
+            retryAllowedAt: retryAllowedAt.toISOString(),
+          });
+          return;
+        }
+      }
+      // Retry period elapsed — allow creating a fresh withdrawal (fall through to creation below)
+    }
+
     if (latest.status === "pending_verification") {
       if (latest.mpesaPhone !== mpesaPhone) {
         // Phone changed — update it and reset OTP verification for this request
@@ -170,7 +203,10 @@ router.post("/withdrawals", async (req: Request, res: Response): Promise<void> =
     }
   }
 
-  // 4. Create new withdrawal request
+  // 4. Create new withdrawal request — expires 7 days from now by default
+  const defaultExpiresAt = new Date();
+  defaultExpiresAt.setDate(defaultExpiresAt.getDate() + 7);
+
   const [withdrawal] = await db
     .insert(withdrawalRequestsTable)
     .values({
@@ -181,6 +217,7 @@ router.post("/withdrawals", async (req: Request, res: Response): Promise<void> =
       status: "pending_verification",
       otpVerified: false,
       verificationAttempts: 0,
+      expiresAt: defaultExpiresAt,
     })
     .returning();
 
@@ -228,6 +265,16 @@ router.post(
 
     if (withdrawal.status !== "pending_verification") {
       res.status(409).json({ error: `Withdrawal is already ${withdrawal.status}.` });
+      return;
+    }
+
+    // Auto-expire if past deadline
+    if (withdrawal.expiresAt && withdrawal.expiresAt < new Date()) {
+      await db
+        .update(withdrawalRequestsTable)
+        .set({ status: "expired" })
+        .where(eq(withdrawalRequestsTable.id, withdrawal.id));
+      res.status(409).json({ error: "This withdrawal request has expired. Please start a new one." });
       return;
     }
 
@@ -301,6 +348,16 @@ router.post(
 
     if (withdrawal.status !== "pending_verification") {
       res.status(409).json({ error: `Withdrawal is already ${withdrawal.status}.` });
+      return;
+    }
+
+    // Auto-expire if past deadline
+    if (withdrawal.expiresAt && withdrawal.expiresAt < new Date()) {
+      await db
+        .update(withdrawalRequestsTable)
+        .set({ status: "expired" })
+        .where(eq(withdrawalRequestsTable.id, withdrawal.id));
+      res.status(409).json({ error: "This withdrawal request has expired. Please start a new one." });
       return;
     }
 
@@ -855,6 +912,8 @@ router.get(
         verificationAttempts: withdrawalRequestsTable.verificationAttempts,
         loanId: withdrawalRequestsTable.loanId,
         lockedAt: withdrawalRequestsTable.lockedAt,
+        expiresAt: withdrawalRequestsTable.expiresAt,
+        retryAfterDays: withdrawalRequestsTable.retryAfterDays,
         receiptStatus: withdrawalRequestsTable.receiptStatus,
         issueReportedAt: withdrawalRequestsTable.issueReportedAt,
         adminResponse: withdrawalRequestsTable.adminResponse,
@@ -931,6 +990,158 @@ router.patch(
     });
 
     res.json(UnlockWithdrawalResponse.parse(updated));
+  },
+);
+
+/**
+ * PATCH /admin/withdrawals/:id/extend
+ * Add N days to the expiry deadline of a pending_verification withdrawal.
+ * If the withdrawal has already expired (status=expired), this also resets
+ * it back to pending_verification with a fresh deadline so the customer can
+ * continue their existing request.
+ */
+router.patch(
+  "/admin/withdrawals/:id/extend",
+  async (req: Request, res: Response): Promise<void> => {
+    if (!requireStaff(req, res)) return;
+
+    const params = ExtendWithdrawalParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+
+    const parsed = ExtendWithdrawalBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.message });
+      return;
+    }
+
+    const [withdrawal] = await db
+      .select()
+      .from(withdrawalRequestsTable)
+      .where(eq(withdrawalRequestsTable.id, params.data.id));
+
+    if (!withdrawal) {
+      res.status(404).json({ error: "Withdrawal request not found." });
+      return;
+    }
+
+    if (withdrawal.status === "disbursed" || withdrawal.status === "failed") {
+      res.status(409).json({
+        error: `Cannot extend a withdrawal that is already ${withdrawal.status}.`,
+      });
+      return;
+    }
+
+    // Calculate the new expiry: extend from the current expiresAt if it is in
+    // the future, otherwise extend from now so the customer gets the full time.
+    const base =
+      withdrawal.expiresAt && withdrawal.expiresAt > new Date()
+        ? withdrawal.expiresAt
+        : new Date();
+    const newExpiresAt = new Date(base);
+    newExpiresAt.setDate(newExpiresAt.getDate() + parsed.data.days);
+
+    // If expired, reinstate to pending_verification so the customer can continue
+    const statusUpdate =
+      withdrawal.status === "expired"
+        ? { status: "pending_verification" as const, expiresAt: newExpiresAt }
+        : { expiresAt: newExpiresAt };
+
+    const [updated] = await db
+      .update(withdrawalRequestsTable)
+      .set(statusUpdate)
+      .where(eq(withdrawalRequestsTable.id, withdrawal.id))
+      .returning();
+
+    await db.insert(auditLogsTable).values({
+      userId: req.user!.id,
+      action: "withdrawal.deadline_extended",
+      entityType: "withdrawal_request",
+      entityId: withdrawal.id,
+      details: `days=${parsed.data.days}, newExpiresAt=${newExpiresAt.toISOString()}`,
+    });
+
+    // Notify the customer
+    await db.insert(notificationsTable).values({
+      userId: withdrawal.customerId,
+      channel: "in_app",
+      title: "Withdrawal deadline extended",
+      message: `Your withdrawal deadline has been extended by ${parsed.data.days} day${parsed.data.days === 1 ? "" : "s"}. Your new deadline is ${newExpiresAt.toLocaleDateString("en-KE", { day: "numeric", month: "long", year: "numeric" })}.`,
+      status: "sent",
+    });
+
+    res.json(ExtendWithdrawalResponse.parse(updated));
+  },
+);
+
+/**
+ * PATCH /admin/withdrawals/:id/set-retry-period
+ * Set how many days a customer must wait after expiry before they can start
+ * a new withdrawal. Can only be applied to expired withdrawals.
+ */
+router.patch(
+  "/admin/withdrawals/:id/set-retry-period",
+  async (req: Request, res: Response): Promise<void> => {
+    if (!requireStaff(req, res)) return;
+
+    const params = SetWithdrawalRetryPeriodParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+
+    const parsed = SetWithdrawalRetryPeriodBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.message });
+      return;
+    }
+
+    const [withdrawal] = await db
+      .select()
+      .from(withdrawalRequestsTable)
+      .where(eq(withdrawalRequestsTable.id, params.data.id));
+
+    if (!withdrawal) {
+      res.status(404).json({ error: "Withdrawal request not found." });
+      return;
+    }
+
+    if (withdrawal.status !== "expired") {
+      res.status(409).json({
+        error: `Withdrawal is not expired (status: ${withdrawal.status}). Only expired withdrawals can have a retry period set.`,
+      });
+      return;
+    }
+
+    const [updated] = await db
+      .update(withdrawalRequestsTable)
+      .set({ retryAfterDays: parsed.data.days })
+      .where(eq(withdrawalRequestsTable.id, withdrawal.id))
+      .returning();
+
+    await db.insert(auditLogsTable).values({
+      userId: req.user!.id,
+      action: "withdrawal.retry_period_set",
+      entityType: "withdrawal_request",
+      entityId: withdrawal.id,
+      details: `retryAfterDays=${parsed.data.days}`,
+    });
+
+    if (parsed.data.days > 0 && withdrawal.expiresAt) {
+      const retryDate = new Date(withdrawal.expiresAt);
+      retryDate.setDate(retryDate.getDate() + parsed.data.days);
+      await db.insert(notificationsTable).values({
+        userId: withdrawal.customerId,
+        channel: "in_app",
+        title: "Withdrawal retry period set",
+        message: `Your withdrawal has expired. You can apply for a new withdrawal from ${retryDate.toLocaleDateString("en-KE", { day: "numeric", month: "long", year: "numeric" })}.`,
+        status: "sent",
+      });
+    }
+
+    res.json(SetWithdrawalRetryPeriodResponse.parse(updated));
   },
 );
 

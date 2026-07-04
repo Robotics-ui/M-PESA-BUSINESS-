@@ -868,11 +868,13 @@ export const ListMyWithdrawalsResponseItem = zod.object({
   "amount": zod.string(),
   "mpesaPhone": zod.string(),
   "virtualCardId": zod.string(),
-  "status": zod.enum(['pending_verification', 'disbursed', 'failed', 'locked']),
+  "status": zod.enum(['pending_verification', 'disbursed', 'failed', 'locked', 'expired']),
   "otpVerified": zod.boolean(),
   "verificationAttempts": zod.number(),
   "loanId": zod.string().nullable(),
   "lockedAt": zod.coerce.date().nullable(),
+  "expiresAt": zod.coerce.date().nullable(),
+  "retryAfterDays": zod.number().nullable(),
   "receiptStatus": zod.enum(['pending', 'confirmed', 'not_received']),
   "issueReportedAt": zod.coerce.date().nullable(),
   "adminResponse": zod.string().nullable(),
@@ -901,11 +903,13 @@ export const InitiateWithdrawalResponse = zod.object({
   "amount": zod.string(),
   "mpesaPhone": zod.string(),
   "virtualCardId": zod.string(),
-  "status": zod.enum(['pending_verification', 'disbursed', 'failed', 'locked']),
+  "status": zod.enum(['pending_verification', 'disbursed', 'failed', 'locked', 'expired']),
   "otpVerified": zod.boolean(),
   "verificationAttempts": zod.number(),
   "loanId": zod.string().nullable(),
   "lockedAt": zod.coerce.date().nullable(),
+  "expiresAt": zod.coerce.date().nullable(),
+  "retryAfterDays": zod.number().nullable(),
   "receiptStatus": zod.enum(['pending', 'confirmed', 'not_received']),
   "issueReportedAt": zod.coerce.date().nullable(),
   "adminResponse": zod.string().nullable(),
@@ -952,11 +956,13 @@ export const VerifyWithdrawalOtpResponse = zod.object({
   "amount": zod.string(),
   "mpesaPhone": zod.string(),
   "virtualCardId": zod.string(),
-  "status": zod.enum(['pending_verification', 'disbursed', 'failed', 'locked']),
+  "status": zod.enum(['pending_verification', 'disbursed', 'failed', 'locked', 'expired']),
   "otpVerified": zod.boolean(),
   "verificationAttempts": zod.number(),
   "loanId": zod.string().nullable(),
   "lockedAt": zod.coerce.date().nullable(),
+  "expiresAt": zod.coerce.date().nullable(),
+  "retryAfterDays": zod.number().nullable(),
   "receiptStatus": zod.enum(['pending', 'confirmed', 'not_received']),
   "issueReportedAt": zod.coerce.date().nullable(),
   "adminResponse": zod.string().nullable(),
@@ -992,11 +998,13 @@ export const VerifyWithdrawalCardResponse = zod.object({
   "amount": zod.string(),
   "mpesaPhone": zod.string(),
   "virtualCardId": zod.string(),
-  "status": zod.enum(['pending_verification', 'disbursed', 'failed', 'locked']),
+  "status": zod.enum(['pending_verification', 'disbursed', 'failed', 'locked', 'expired']),
   "otpVerified": zod.boolean(),
   "verificationAttempts": zod.number(),
   "loanId": zod.string().nullable(),
   "lockedAt": zod.coerce.date().nullable(),
+  "expiresAt": zod.coerce.date().nullable(),
+  "retryAfterDays": zod.number().nullable(),
   "receiptStatus": zod.enum(['pending', 'confirmed', 'not_received']),
   "issueReportedAt": zod.coerce.date().nullable(),
   "adminResponse": zod.string().nullable(),
@@ -1025,11 +1033,13 @@ export const ConfirmWithdrawalReceiptResponse = zod.object({
   "amount": zod.string(),
   "mpesaPhone": zod.string(),
   "virtualCardId": zod.string(),
-  "status": zod.enum(['pending_verification', 'disbursed', 'failed', 'locked']),
+  "status": zod.enum(['pending_verification', 'disbursed', 'failed', 'locked', 'expired']),
   "otpVerified": zod.boolean(),
   "verificationAttempts": zod.number(),
   "loanId": zod.string().nullable(),
   "lockedAt": zod.coerce.date().nullable(),
+  "expiresAt": zod.coerce.date().nullable(),
+  "retryAfterDays": zod.number().nullable(),
   "receiptStatus": zod.enum(['pending', 'confirmed', 'not_received']),
   "issueReportedAt": zod.coerce.date().nullable(),
   "adminResponse": zod.string().nullable(),
@@ -1062,11 +1072,13 @@ export const ResolveWithdrawalIssueResponse = zod.object({
   "amount": zod.string(),
   "mpesaPhone": zod.string(),
   "virtualCardId": zod.string(),
-  "status": zod.enum(['pending_verification', 'disbursed', 'failed', 'locked']),
+  "status": zod.enum(['pending_verification', 'disbursed', 'failed', 'locked', 'expired']),
   "otpVerified": zod.boolean(),
   "verificationAttempts": zod.number(),
   "loanId": zod.string().nullable(),
   "lockedAt": zod.coerce.date().nullable(),
+  "expiresAt": zod.coerce.date().nullable(),
+  "retryAfterDays": zod.number().nullable(),
   "receiptStatus": zod.enum(['pending', 'confirmed', 'not_received']),
   "issueReportedAt": zod.coerce.date().nullable(),
   "adminResponse": zod.string().nullable(),
@@ -1086,11 +1098,13 @@ export const ListAllWithdrawalsResponseItem = zod.object({
   "amount": zod.string(),
   "mpesaPhone": zod.string(),
   "virtualCardId": zod.string(),
-  "status": zod.enum(['pending_verification', 'disbursed', 'failed', 'locked']),
+  "status": zod.enum(['pending_verification', 'disbursed', 'failed', 'locked', 'expired']),
   "otpVerified": zod.boolean(),
   "verificationAttempts": zod.number(),
   "loanId": zod.string().nullable(),
   "lockedAt": zod.coerce.date().nullable(),
+  "expiresAt": zod.coerce.date().nullable(),
+  "retryAfterDays": zod.number().nullable(),
   "receiptStatus": zod.enum(['pending', 'confirmed', 'not_received']),
   "issueReportedAt": zod.coerce.date().nullable(),
   "adminResponse": zod.string().nullable(),
@@ -1106,6 +1120,83 @@ export const ListAllWithdrawalsResponse = zod.array(ListAllWithdrawalsResponseIt
 
 
 /**
+ * @summary Extend the expiry deadline of a withdrawal request by adding days (staff only)
+ */
+export const ExtendWithdrawalParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const extendWithdrawalBodyDaysMax = 90;
+
+
+
+export const ExtendWithdrawalBody = zod.object({
+  "days": zod.number().min(1).max(extendWithdrawalBodyDaysMax).describe('Number of days to add to the current expiry (or from now if already expired).')
+})
+
+export const ExtendWithdrawalResponse = zod.object({
+  "id": zod.string(),
+  "customerId": zod.string(),
+  "amount": zod.string(),
+  "mpesaPhone": zod.string(),
+  "virtualCardId": zod.string(),
+  "status": zod.enum(['pending_verification', 'disbursed', 'failed', 'locked', 'expired']),
+  "otpVerified": zod.boolean(),
+  "verificationAttempts": zod.number(),
+  "loanId": zod.string().nullable(),
+  "lockedAt": zod.coerce.date().nullable(),
+  "expiresAt": zod.coerce.date().nullable(),
+  "retryAfterDays": zod.number().nullable(),
+  "receiptStatus": zod.enum(['pending', 'confirmed', 'not_received']),
+  "issueReportedAt": zod.coerce.date().nullable(),
+  "adminResponse": zod.string().nullable(),
+  "resolutionType": zod.union([zod.enum(['rejected', 'new_card_required', 'retry']),zod.null()]),
+  "resolvedAt": zod.coerce.date().nullable(),
+  "resolvedBy": zod.string().nullable(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Set the number of days a customer must wait after expiry before retrying (staff only)
+ */
+export const SetWithdrawalRetryPeriodParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const setWithdrawalRetryPeriodBodyDaysMin = 0;
+export const setWithdrawalRetryPeriodBodyDaysMax = 365;
+
+
+
+export const SetWithdrawalRetryPeriodBody = zod.object({
+  "days": zod.number().min(setWithdrawalRetryPeriodBodyDaysMin).max(setWithdrawalRetryPeriodBodyDaysMax).describe('Number of days after expiry the customer must wait before they can start a new withdrawal.')
+})
+
+export const SetWithdrawalRetryPeriodResponse = zod.object({
+  "id": zod.string(),
+  "customerId": zod.string(),
+  "amount": zod.string(),
+  "mpesaPhone": zod.string(),
+  "virtualCardId": zod.string(),
+  "status": zod.enum(['pending_verification', 'disbursed', 'failed', 'locked', 'expired']),
+  "otpVerified": zod.boolean(),
+  "verificationAttempts": zod.number(),
+  "loanId": zod.string().nullable(),
+  "lockedAt": zod.coerce.date().nullable(),
+  "expiresAt": zod.coerce.date().nullable(),
+  "retryAfterDays": zod.number().nullable(),
+  "receiptStatus": zod.enum(['pending', 'confirmed', 'not_received']),
+  "issueReportedAt": zod.coerce.date().nullable(),
+  "adminResponse": zod.string().nullable(),
+  "resolutionType": zod.union([zod.enum(['rejected', 'new_card_required', 'retry']),zod.null()]),
+  "resolvedAt": zod.coerce.date().nullable(),
+  "resolvedBy": zod.string().nullable(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
  * @summary Unlock a locked withdrawal request so the customer can retry card verification (staff only)
  */
 export const UnlockWithdrawalParams = zod.object({
@@ -1118,11 +1209,13 @@ export const UnlockWithdrawalResponse = zod.object({
   "amount": zod.string(),
   "mpesaPhone": zod.string(),
   "virtualCardId": zod.string(),
-  "status": zod.enum(['pending_verification', 'disbursed', 'failed', 'locked']),
+  "status": zod.enum(['pending_verification', 'disbursed', 'failed', 'locked', 'expired']),
   "otpVerified": zod.boolean(),
   "verificationAttempts": zod.number(),
   "loanId": zod.string().nullable(),
   "lockedAt": zod.coerce.date().nullable(),
+  "expiresAt": zod.coerce.date().nullable(),
+  "retryAfterDays": zod.number().nullable(),
   "receiptStatus": zod.enum(['pending', 'confirmed', 'not_received']),
   "issueReportedAt": zod.coerce.date().nullable(),
   "adminResponse": zod.string().nullable(),

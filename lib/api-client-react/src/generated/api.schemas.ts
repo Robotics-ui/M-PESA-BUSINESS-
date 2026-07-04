@@ -352,6 +352,7 @@ export const WithdrawalStatus = {
   disbursed: 'disbursed',
   failed: 'failed',
   locked: 'locked',
+  expired: 'expired',
 } as const;
 
 export type WithdrawalReceiptStatus = typeof WithdrawalReceiptStatus[keyof typeof WithdrawalReceiptStatus];
@@ -385,6 +386,10 @@ export interface WithdrawalRequest {
   loanId: string | null;
   /** @nullable */
   lockedAt: string | null;
+  /** @nullable */
+  expiresAt: string | null;
+  /** @nullable */
+  retryAfterDays: number | null;
   receiptStatus: WithdrawalReceiptStatus;
   /** @nullable */
   issueReportedAt: string | null;
@@ -396,6 +401,24 @@ export interface WithdrawalRequest {
   /** @nullable */
   resolvedBy: string | null;
   createdAt: string;
+}
+
+export interface ExtendWithdrawalBody {
+  /**
+     * Number of days to add to the current expiry (or from now if already expired).
+     * @minimum 1
+     * @maximum 90
+     */
+  days: number;
+}
+
+export interface SetWithdrawalRetryPeriodBody {
+  /**
+     * Number of days after expiry the customer must wait before they can start a new withdrawal.
+     * @minimum 0
+     * @maximum 365
+     */
+  days: number;
 }
 
 export interface ConfirmWithdrawalReceiptBody {

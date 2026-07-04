@@ -5,6 +5,8 @@ import {
   getListAllWithdrawalsQueryKey,
   useUnlockWithdrawal,
   useResolveWithdrawalIssue,
+  useExtendWithdrawal,
+  useSetWithdrawalRetryPeriod,
 } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -24,7 +26,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, formatDateTime } from "@/lib/format";
-import { Unlock, MessageSquare, CreditCard, RefreshCw, XCircle } from "lucide-react";
+import { Unlock, MessageSquare, CreditCard, RefreshCw, XCircle, CalendarPlus, CalendarClock } from "lucide-react";
+import { Input } from "@/components/ui/input";
 
 function StatusBadge({ status }: { status: string }) {
   if (status === "disbursed")
@@ -33,7 +36,29 @@ function StatusBadge({ status }: { status: string }) {
     return <Badge className="bg-red-100 text-red-700 border-red-200">Locked</Badge>;
   if (status === "failed")
     return <Badge className="bg-red-100 text-red-700 border-red-200">Failed</Badge>;
+  if (status === "expired")
+    return <Badge className="bg-gray-100 text-gray-600 border-gray-300">Expired</Badge>;
   return <Badge className="bg-yellow-100 text-yellow-700 border-yellow-200">Pending verification</Badge>;
+}
+
+/** Days remaining until expiresAt (negative = already expired). */
+function daysUntil(dateStr: string | null | undefined): number | null {
+  if (!dateStr) return null;
+  const diff = new Date(dateStr).getTime() - Date.now();
+  return Math.ceil(diff / (1000 * 60 * 60 * 24));
+}
+
+function ExpiryBadge({ expiresAt, status }: { expiresAt?: string | null; status: string }) {
+  if (!expiresAt || status === "disbursed" || status === "failed") return null;
+  const days = daysUntil(expiresAt);
+  if (days === null) return null;
+  if (status === "expired" || days < 0)
+    return <p className="text-xs text-gray-500 mt-1">Expired {formatDateTime(expiresAt)}</p>;
+  if (days <= 1)
+    return <p className="text-xs text-red-600 mt-1 font-medium">Expires today!</p>;
+  if (days <= 3)
+    return <p className="text-xs text-orange-600 mt-1">Expires in {days}d</p>;
+  return <p className="text-xs text-muted-foreground mt-1">Expires in {days}d</p>;
 }
 
 function ReceiptBadge({ receiptStatus, resolvedAt }: { receiptStatus: string; resolvedAt?: string | null }) {
@@ -57,6 +82,19 @@ interface ResolveDialogState {
   resolvedAt: string | null;
 }
 
+interface ExtendDialogState {
+  withdrawalId: string;
+  customerName: string;
+  currentExpiry: string | null;
+  isExpired: boolean;
+}
+
+interface RetryPeriodDialogState {
+  withdrawalId: string;
+  customerName: string;
+  expiresAt: string | null;
+}
+
 export default function Withdrawals() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -64,6 +102,10 @@ export default function Withdrawals() {
   const [resolveDialog, setResolveDialog] = useState<ResolveDialogState | null>(null);
   const [resolveReason, setResolveReason] = useState("");
   const [resolveType, setResolveType] = useState<ResolutionType>("rejected");
+  const [extendDialog, setExtendDialog] = useState<ExtendDialogState | null>(null);
+  const [extendDays, setExtendDays] = useState("7");
+  const [retryPeriodDialog, setRetryPeriodDialog] = useState<RetryPeriodDialogState | null>(null);
+  const [retryPeriodDays, setRetryPeriodDays] = useState("30");
 
   const { data: withdrawals, isLoading } = useListAllWithdrawals();
 
@@ -75,6 +117,36 @@ export default function Withdrawals() {
       },
       onError: (err: any) => {
         const msg = err?.response?.data?.error ?? "Failed to unlock withdrawal.";
+        toast({ title: "Error", description: msg, variant: "destructive" });
+      },
+    },
+  });
+
+  const { mutate: extendDeadline, isPending: extending } = useExtendWithdrawal({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListAllWithdrawalsQueryKey() });
+        setExtendDialog(null);
+        setExtendDays("7");
+        toast({ title: "Deadline extended", description: "The customer has been notified." });
+      },
+      onError: (err: any) => {
+        const msg = err?.response?.data?.error ?? "Failed to extend deadline.";
+        toast({ title: "Error", description: msg, variant: "destructive" });
+      },
+    },
+  });
+
+  const { mutate: setRetryPeriod, isPending: settingRetry } = useSetWithdrawalRetryPeriod({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListAllWithdrawalsQueryKey() });
+        setRetryPeriodDialog(null);
+        setRetryPeriodDays("30");
+        toast({ title: "Retry period set", description: "The customer has been notified." });
+      },
+      onError: (err: any) => {
+        const msg = err?.response?.data?.error ?? "Failed to set retry period.";
         toast({ title: "Error", description: msg, variant: "destructive" });
       },
     },
@@ -95,6 +167,39 @@ export default function Withdrawals() {
       },
     },
   });
+
+  const handleOpenExtend = (w: NonNullable<typeof withdrawals>[number]) => {
+    setExtendDialog({
+      withdrawalId: w.id,
+      customerName: w.customerName || "Customer",
+      currentExpiry: w.expiresAt ? String(w.expiresAt) : null,
+      isExpired: w.status === "expired",
+    });
+    setExtendDays("7");
+  };
+
+  const handleOpenRetryPeriod = (w: NonNullable<typeof withdrawals>[number]) => {
+    setRetryPeriodDialog({
+      withdrawalId: w.id,
+      customerName: w.customerName || "Customer",
+      expiresAt: w.expiresAt ? String(w.expiresAt) : null,
+    });
+    setRetryPeriodDays(String(w.retryAfterDays ?? 30));
+  };
+
+  const handleSubmitExtend = () => {
+    if (!extendDialog) return;
+    const days = parseInt(extendDays, 10);
+    if (!days || days < 1) return;
+    extendDeadline({ id: extendDialog.withdrawalId, data: { days } });
+  };
+
+  const handleSubmitRetryPeriod = () => {
+    if (!retryPeriodDialog) return;
+    const days = parseInt(retryPeriodDays, 10);
+    if (isNaN(days) || days < 0) return;
+    setRetryPeriod({ id: retryPeriodDialog.withdrawalId, data: { days } });
+  };
 
   const filtered = withdrawals?.filter((w) => statusFilter === "all" || w.status === statusFilter);
 
@@ -151,6 +256,7 @@ export default function Withdrawals() {
             <SelectItem value="pending_verification">Pending verification</SelectItem>
             <SelectItem value="disbursed">Disbursed</SelectItem>
             <SelectItem value="locked">Locked</SelectItem>
+            <SelectItem value="expired">Expired</SelectItem>
             <SelectItem value="failed">Failed</SelectItem>
           </SelectContent>
         </Select>
@@ -175,7 +281,7 @@ export default function Withdrawals() {
                   <TableHead>Customer</TableHead>
                   <TableHead>Amount</TableHead>
                   <TableHead>M-Pesa number</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead>Status / Expiry</TableHead>
                   <TableHead>Attempts</TableHead>
                   <TableHead>Requested</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -186,10 +292,14 @@ export default function Withdrawals() {
                   const hasOpenDispute = w.status === "disbursed" && w.receiptStatus === "not_received" && !w.resolvedAt;
                   const hasResolvedDispute = w.receiptStatus === "not_received" && w.resolvedAt;
 
+                  const isExpired = w.status === "expired";
+                  const isPending = w.status === "pending_verification";
+                  const canExtend = isPending || isExpired;
+
                   return (
                     <TableRow
                       key={w.id}
-                      className={hasOpenDispute ? "bg-orange-50/50" : undefined}
+                      className={hasOpenDispute ? "bg-orange-50/50" : isExpired ? "bg-gray-50/60" : undefined}
                     >
                       <TableCell>
                         <p className="font-medium text-foreground">{w.customerName || "—"}</p>
@@ -204,6 +314,15 @@ export default function Withdrawals() {
                             Locked {formatDateTime(w.lockedAt as unknown as string)}
                           </p>
                         )}
+                        <ExpiryBadge
+                          expiresAt={w.expiresAt ? String(w.expiresAt) : null}
+                          status={w.status}
+                        />
+                        {isExpired && w.retryAfterDays != null && w.retryAfterDays > 0 && w.expiresAt && (
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Retry after {w.retryAfterDays}d wait
+                          </p>
+                        )}
                         <ReceiptBadge
                           receiptStatus={w.receiptStatus}
                           resolvedAt={w.resolvedAt ? String(w.resolvedAt) : null}
@@ -216,7 +335,7 @@ export default function Withdrawals() {
                         {formatDateTime(w.createdAt as unknown as string)}
                       </TableCell>
                       <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
+                        <div className="flex items-center justify-end gap-2 flex-wrap">
                           {w.status === "locked" && (
                             <Button
                               size="sm"
@@ -226,6 +345,28 @@ export default function Withdrawals() {
                             >
                               <Unlock className="h-3.5 w-3.5 mr-1" />
                               {unlocking && unlockVars?.id === w.id ? "Unlocking…" : "Unlock"}
+                            </Button>
+                          )}
+                          {canExtend && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="border-blue-200 text-blue-700 hover:bg-blue-50"
+                              onClick={() => handleOpenExtend(w)}
+                            >
+                              <CalendarPlus className="h-3.5 w-3.5 mr-1" />
+                              {isExpired ? "Reinstate" : "Extend"}
+                            </Button>
+                          )}
+                          {isExpired && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="border-orange-200 text-orange-700 hover:bg-orange-50"
+                              onClick={() => handleOpenRetryPeriod(w)}
+                            >
+                              <CalendarClock className="h-3.5 w-3.5 mr-1" />
+                              Retry period
                             </Button>
                           )}
                           {hasOpenDispute && (
@@ -364,6 +505,107 @@ export default function Withdrawals() {
                 {resolving ? "Resolving…" : "Send resolution"}
               </Button>
             )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* Extend deadline dialog */}
+      <Dialog open={!!extendDialog} onOpenChange={(open) => { if (!open) setExtendDialog(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>
+              {extendDialog?.isExpired ? "Reinstate & extend deadline" : "Extend withdrawal deadline"}
+            </DialogTitle>
+            <DialogDescription>
+              {extendDialog && (
+                <>
+                  Add days to{" "}
+                  <span className="font-medium">{extendDialog.customerName}</span>'s withdrawal deadline.
+                  {extendDialog.isExpired && " This will also reinstate the expired request so the customer can continue."}
+                  {!extendDialog.isExpired && extendDialog.currentExpiry && (
+                    <> Current deadline: <span className="font-medium">{formatDateTime(extendDialog.currentExpiry)}</span>.</>
+                  )}
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <Label htmlFor="extendDays">Number of days to add</Label>
+            <Input
+              id="extendDays"
+              type="number"
+              min={1}
+              max={90}
+              value={extendDays}
+              onChange={(e) => setExtendDays(e.target.value)}
+              placeholder="7"
+            />
+            <p className="text-xs text-muted-foreground">
+              The new deadline will be calculated from the current expiry date (or from now if already expired).
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setExtendDialog(null)}>Cancel</Button>
+            <Button
+              onClick={handleSubmitExtend}
+              disabled={extending || !extendDays || parseInt(extendDays) < 1}
+            >
+              {extending ? "Extending…" : "Extend deadline"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Set retry period dialog */}
+      <Dialog open={!!retryPeriodDialog} onOpenChange={(open) => { if (!open) setRetryPeriodDialog(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Set retry period</DialogTitle>
+            <DialogDescription>
+              {retryPeriodDialog && (
+                <>
+                  Set how many days{" "}
+                  <span className="font-medium">{retryPeriodDialog.customerName}</span> must wait after
+                  expiry before they can start a new withdrawal. Set to 0 to allow immediate retry.
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <Label htmlFor="retryDays">Days after expiry before retry is allowed</Label>
+            <Input
+              id="retryDays"
+              type="number"
+              min={0}
+              max={365}
+              value={retryPeriodDays}
+              onChange={(e) => setRetryPeriodDays(e.target.value)}
+              placeholder="30"
+            />
+            {retryPeriodDialog?.expiresAt && parseInt(retryPeriodDays) > 0 && !isNaN(parseInt(retryPeriodDays)) && (
+              <p className="text-xs text-muted-foreground">
+                Customer can retry from:{" "}
+                <span className="font-medium">
+                  {formatDateTime(
+                    new Date(
+                      new Date(retryPeriodDialog.expiresAt).getTime() +
+                      parseInt(retryPeriodDays) * 24 * 60 * 60 * 1000,
+                    ).toISOString(),
+                  )}
+                </span>
+              </p>
+            )}
+            {parseInt(retryPeriodDays) === 0 && (
+              <p className="text-xs text-green-600">Customer can apply again immediately.</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRetryPeriodDialog(null)}>Cancel</Button>
+            <Button
+              onClick={handleSubmitRetryPeriod}
+              disabled={settingRetry || retryPeriodDays === "" || isNaN(parseInt(retryPeriodDays)) || parseInt(retryPeriodDays) < 0}
+            >
+              {settingRetry ? "Saving…" : "Set retry period"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
