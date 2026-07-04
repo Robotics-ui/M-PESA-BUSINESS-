@@ -5,6 +5,7 @@ import {
   ListMyNotificationsResponse,
   MarkNotificationReadParams,
   MarkNotificationReadResponse,
+  DeleteNotificationParams,
 } from "@workspace/api-zod";
 
 const router: IRouter = Router();
@@ -64,6 +65,36 @@ router.patch(
     }
 
     res.json(MarkNotificationReadResponse.parse(notification));
+  },
+);
+
+router.delete(
+  "/notifications/:id",
+  async (req: Request, res: Response): Promise<void> => {
+    if (!requireAuth(req, res)) return;
+
+    const params = DeleteNotificationParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+
+    const [deleted] = await db
+      .delete(notificationsTable)
+      .where(
+        and(
+          eq(notificationsTable.id, params.data.id),
+          eq(notificationsTable.userId, req.user!.id),
+        ),
+      )
+      .returning();
+
+    if (!deleted) {
+      res.status(404).json({ error: "Notification not found" });
+      return;
+    }
+
+    res.status(204).send();
   },
 );
 

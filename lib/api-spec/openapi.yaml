@@ -403,6 +403,22 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
+  /notifications/{id}:
+    delete:
+      tags: [Notifications]
+      operationId: deleteNotification
+      summary: Delete a notification
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '204':
+          description: Notification deleted.
+        '404':
+          description: Not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
 
   # ---------- Admin ----------
   /admin/dashboard/stats:

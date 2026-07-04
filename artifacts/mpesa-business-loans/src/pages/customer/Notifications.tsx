@@ -1,6 +1,7 @@
 import {
   useListMyNotifications,
   useMarkNotificationRead,
+  useDeleteNotification,
   getListMyNotificationsQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -8,19 +9,30 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDateTime } from "@/lib/format";
-import { Bell, BellOff, Check } from "lucide-react";
+import { Bell, BellOff, Check, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function Notifications() {
   const { data: notifications, isLoading } = useListMyNotifications();
   const queryClient = useQueryClient();
-  const { mutate: markRead, isPending } = useMarkNotificationRead({
+
+  const { mutate: markRead, isPending: isMarkingRead } = useMarkNotificationRead({
     mutation: {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getListMyNotificationsQueryKey() });
       },
     },
   });
+
+  const { mutate: deleteNotification, isPending: isDeleting } = useDeleteNotification({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListMyNotificationsQueryKey() });
+      },
+    },
+  });
+
+  const isPending = isMarkingRead || isDeleting;
 
   return (
     <div className="max-w-2xl">
@@ -53,25 +65,38 @@ export default function Notifications() {
           {notifications.map((n) => (
             <Card key={n.id} className={cn(!n.read && "border-primary/40 bg-primary/5")} data-testid={`card-notification-${n.id}`}>
               <CardContent className="py-4 flex items-start justify-between gap-4">
-                <div>
+                <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <p className="font-medium text-foreground">{n.title}</p>
-                    {!n.read && <span className="h-1.5 w-1.5 rounded-full bg-primary" />}
+                    {!n.read && <span className="h-1.5 w-1.5 rounded-full bg-primary shrink-0" />}
                   </div>
                   <p className="text-sm text-muted-foreground mt-1">{n.message}</p>
                   <p className="text-xs text-muted-foreground mt-2">{formatDateTime(n.createdAt)}</p>
                 </div>
-                {!n.read && (
+                <div className="flex items-center gap-2 shrink-0">
+                  {!n.read && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={isPending}
+                      onClick={() => markRead({ id: n.id })}
+                      data-testid={`button-mark-read-${n.id}`}
+                    >
+                      <Check className="h-3.5 w-3.5 mr-1" /> Mark read
+                    </Button>
+                  )}
                   <Button
                     size="sm"
-                    variant="outline"
+                    variant="ghost"
                     disabled={isPending}
-                    onClick={() => markRead({ id: n.id })}
-                    data-testid={`button-mark-read-${n.id}`}
+                    onClick={() => deleteNotification({ id: n.id })}
+                    data-testid={`button-delete-notification-${n.id}`}
+                    className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                    aria-label="Delete notification"
                   >
-                    <Check className="h-3.5 w-3.5 mr-1" /> Mark read
+                    <Trash2 className="h-3.5 w-3.5" />
                   </Button>
-                )}
+                </div>
               </CardContent>
             </Card>
           ))}

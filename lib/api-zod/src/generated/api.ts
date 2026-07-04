@@ -430,6 +430,16 @@ export const MarkNotificationReadResponse = zod.object({
 
 
 /**
+ * @summary Delete a notification
+ */
+export const DeleteNotificationParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const DeleteNotificationResponse = zod.void()
+
+
+/**
  * @summary Get admin dashboard summary statistics
  */
 export const GetAdminDashboardStatsResponse = zod.object({
