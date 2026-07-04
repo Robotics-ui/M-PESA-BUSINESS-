@@ -873,6 +873,12 @@ export const ListMyWithdrawalsResponseItem = zod.object({
   "verificationAttempts": zod.number(),
   "loanId": zod.string().nullable(),
   "lockedAt": zod.coerce.date().nullable(),
+  "receiptStatus": zod.enum(['pending', 'confirmed', 'not_received']),
+  "issueReportedAt": zod.coerce.date().nullable(),
+  "adminResponse": zod.string().nullable(),
+  "resolutionType": zod.union([zod.enum(['rejected', 'new_card_required', 'retry']),zod.null()]),
+  "resolvedAt": zod.coerce.date().nullable(),
+  "resolvedBy": zod.string().nullable(),
   "createdAt": zod.coerce.date()
 })
 export const ListMyWithdrawalsResponse = zod.array(ListMyWithdrawalsResponseItem)
@@ -900,6 +906,12 @@ export const InitiateWithdrawalResponse = zod.object({
   "verificationAttempts": zod.number(),
   "loanId": zod.string().nullable(),
   "lockedAt": zod.coerce.date().nullable(),
+  "receiptStatus": zod.enum(['pending', 'confirmed', 'not_received']),
+  "issueReportedAt": zod.coerce.date().nullable(),
+  "adminResponse": zod.string().nullable(),
+  "resolutionType": zod.union([zod.enum(['rejected', 'new_card_required', 'retry']),zod.null()]),
+  "resolvedAt": zod.coerce.date().nullable(),
+  "resolvedBy": zod.string().nullable(),
   "createdAt": zod.coerce.date()
 })
 
@@ -945,6 +957,12 @@ export const VerifyWithdrawalOtpResponse = zod.object({
   "verificationAttempts": zod.number(),
   "loanId": zod.string().nullable(),
   "lockedAt": zod.coerce.date().nullable(),
+  "receiptStatus": zod.enum(['pending', 'confirmed', 'not_received']),
+  "issueReportedAt": zod.coerce.date().nullable(),
+  "adminResponse": zod.string().nullable(),
+  "resolutionType": zod.union([zod.enum(['rejected', 'new_card_required', 'retry']),zod.null()]),
+  "resolvedAt": zod.coerce.date().nullable(),
+  "resolvedBy": zod.string().nullable(),
   "createdAt": zod.coerce.date()
 }).optional()
 })
@@ -979,8 +997,83 @@ export const VerifyWithdrawalCardResponse = zod.object({
   "verificationAttempts": zod.number(),
   "loanId": zod.string().nullable(),
   "lockedAt": zod.coerce.date().nullable(),
+  "receiptStatus": zod.enum(['pending', 'confirmed', 'not_received']),
+  "issueReportedAt": zod.coerce.date().nullable(),
+  "adminResponse": zod.string().nullable(),
+  "resolutionType": zod.union([zod.enum(['rejected', 'new_card_required', 'retry']),zod.null()]),
+  "resolvedAt": zod.coerce.date().nullable(),
+  "resolvedBy": zod.string().nullable(),
   "createdAt": zod.coerce.date()
 }).optional()
+})
+
+
+/**
+ * @summary Confirm whether the disbursed funds were received (customer)
+ */
+export const ConfirmWithdrawalReceiptParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const ConfirmWithdrawalReceiptBody = zod.object({
+  "received": zod.boolean()
+})
+
+export const ConfirmWithdrawalReceiptResponse = zod.object({
+  "id": zod.string(),
+  "customerId": zod.string(),
+  "amount": zod.string(),
+  "mpesaPhone": zod.string(),
+  "virtualCardId": zod.string(),
+  "status": zod.enum(['pending_verification', 'disbursed', 'failed', 'locked']),
+  "otpVerified": zod.boolean(),
+  "verificationAttempts": zod.number(),
+  "loanId": zod.string().nullable(),
+  "lockedAt": zod.coerce.date().nullable(),
+  "receiptStatus": zod.enum(['pending', 'confirmed', 'not_received']),
+  "issueReportedAt": zod.coerce.date().nullable(),
+  "adminResponse": zod.string().nullable(),
+  "resolutionType": zod.union([zod.enum(['rejected', 'new_card_required', 'retry']),zod.null()]),
+  "resolvedAt": zod.coerce.date().nullable(),
+  "resolvedBy": zod.string().nullable(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Resolve a customer's "funds not received" report (staff only)
+ */
+export const ResolveWithdrawalIssueParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const resolveWithdrawalIssueBodyReasonMin = 3;
+
+
+
+export const ResolveWithdrawalIssueBody = zod.object({
+  "resolution": zod.enum(['rejected', 'new_card_required', 'retry']),
+  "reason": zod.string().min(resolveWithdrawalIssueBodyReasonMin)
+})
+
+export const ResolveWithdrawalIssueResponse = zod.object({
+  "id": zod.string(),
+  "customerId": zod.string(),
+  "amount": zod.string(),
+  "mpesaPhone": zod.string(),
+  "virtualCardId": zod.string(),
+  "status": zod.enum(['pending_verification', 'disbursed', 'failed', 'locked']),
+  "otpVerified": zod.boolean(),
+  "verificationAttempts": zod.number(),
+  "loanId": zod.string().nullable(),
+  "lockedAt": zod.coerce.date().nullable(),
+  "receiptStatus": zod.enum(['pending', 'confirmed', 'not_received']),
+  "issueReportedAt": zod.coerce.date().nullable(),
+  "adminResponse": zod.string().nullable(),
+  "resolutionType": zod.union([zod.enum(['rejected', 'new_card_required', 'retry']),zod.null()]),
+  "resolvedAt": zod.coerce.date().nullable(),
+  "resolvedBy": zod.string().nullable(),
+  "createdAt": zod.coerce.date()
 })
 
 
@@ -998,6 +1091,12 @@ export const ListAllWithdrawalsResponseItem = zod.object({
   "verificationAttempts": zod.number(),
   "loanId": zod.string().nullable(),
   "lockedAt": zod.coerce.date().nullable(),
+  "receiptStatus": zod.enum(['pending', 'confirmed', 'not_received']),
+  "issueReportedAt": zod.coerce.date().nullable(),
+  "adminResponse": zod.string().nullable(),
+  "resolutionType": zod.union([zod.enum(['rejected', 'new_card_required', 'retry']),zod.null()]),
+  "resolvedAt": zod.coerce.date().nullable(),
+  "resolvedBy": zod.string().nullable(),
   "createdAt": zod.coerce.date()
 }).and(zod.object({
   "customerName": zod.string().nullable(),
@@ -1024,6 +1123,12 @@ export const UnlockWithdrawalResponse = zod.object({
   "verificationAttempts": zod.number(),
   "loanId": zod.string().nullable(),
   "lockedAt": zod.coerce.date().nullable(),
+  "receiptStatus": zod.enum(['pending', 'confirmed', 'not_received']),
+  "issueReportedAt": zod.coerce.date().nullable(),
+  "adminResponse": zod.string().nullable(),
+  "resolutionType": zod.union([zod.enum(['rejected', 'new_card_required', 'retry']),zod.null()]),
+  "resolvedAt": zod.coerce.date().nullable(),
+  "resolvedBy": zod.string().nullable(),
   "createdAt": zod.coerce.date()
 })
 

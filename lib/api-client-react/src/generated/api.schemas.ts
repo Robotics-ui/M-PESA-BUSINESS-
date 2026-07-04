@@ -354,6 +354,24 @@ export const WithdrawalStatus = {
   locked: 'locked',
 } as const;
 
+export type WithdrawalReceiptStatus = typeof WithdrawalReceiptStatus[keyof typeof WithdrawalReceiptStatus];
+
+
+export const WithdrawalReceiptStatus = {
+  pending: 'pending',
+  confirmed: 'confirmed',
+  not_received: 'not_received',
+} as const;
+
+export type WithdrawalResolutionType = typeof WithdrawalResolutionType[keyof typeof WithdrawalResolutionType];
+
+
+export const WithdrawalResolutionType = {
+  rejected: 'rejected',
+  new_card_required: 'new_card_required',
+  retry: 'retry',
+} as const;
+
 export interface WithdrawalRequest {
   id: string;
   customerId: string;
@@ -367,7 +385,27 @@ export interface WithdrawalRequest {
   loanId: string | null;
   /** @nullable */
   lockedAt: string | null;
+  receiptStatus: WithdrawalReceiptStatus;
+  /** @nullable */
+  issueReportedAt: string | null;
+  /** @nullable */
+  adminResponse: string | null;
+  resolutionType: WithdrawalResolutionType | null;
+  /** @nullable */
+  resolvedAt: string | null;
+  /** @nullable */
+  resolvedBy: string | null;
   createdAt: string;
+}
+
+export interface ConfirmWithdrawalReceiptBody {
+  received: boolean;
+}
+
+export interface ResolveWithdrawalIssueBody {
+  resolution: WithdrawalResolutionType;
+  /** @minLength 3 */
+  reason: string;
 }
 
 export interface InitiateWithdrawalBody {

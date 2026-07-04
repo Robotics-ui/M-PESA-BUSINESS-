@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -8,6 +8,7 @@ import {
   useRequestWithdrawalOtp,
   useVerifyWithdrawalOtp,
   useVerifyWithdrawalCard,
+  useConfirmWithdrawalReceipt,
   useListMyNotifications,
   useListMyVirtualCards,
   getListMyWithdrawalsQueryKey,
@@ -18,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, formatDateTime } from "@/lib/format";
 import {
@@ -31,6 +33,11 @@ import {
   ArrowRight,
   ShieldCheck,
   Bell,
+  AlertTriangle,
+  Clock,
+  RefreshCw,
+  ThumbsUp,
+  ThumbsDown,
 } from "lucide-react";
 
 // ── Step progress bar ─────────────────────────────────────────────────────────
@@ -82,6 +89,13 @@ function StepProgress({ current }: { current: string }) {
 
 type Step = "loading" | "phone" | "otp" | "verify" | "success" | "locked" | "error";
 
+// Receipt sub-states (shown inside the "success" view)
+type ReceiptPhase =
+  | "confirm"       // just disbursed — ask Done / Not Received
+  | "confirmed"     // customer confirmed receipt
+  | "not_received"  // customer reported issue, waiting for admin
+  | "resolved";     // admin has resolved the issue
+
 const MAX_VERIFY_ATTEMPTS = 3;
 
 export default function Withdraw() {
@@ -109,21 +123,42 @@ export default function Withdraw() {
   const { data: notifications } = useListMyNotifications();
   const { data: cards } = useListMyVirtualCards();
 
-  // These must be declared before latestOtpNotification which references displayPhone
   const activeWithdrawal = withdrawals?.find((w) => w.id === withdrawalId);
   const displayPhone = activeWithdrawal?.mpesaPhone ?? phoneInput ?? profile?.phone ?? "—";
+
+  // Poll for admin resolution when waiting
+  const receiptPhase: ReceiptPhase = (() => {
+    if (!activeWithdrawal || activeWithdrawal.status !== "disbursed") return "confirm";
+    if (activeWithdrawal.receiptStatus === "confirmed") return "confirmed";
+    if (activeWithdrawal.receiptStatus === "not_received") {
+      return activeWithdrawal.resolvedAt ? "resolved" : "not_received";
+    }
+    return "confirm";
+  })();
+
+  // Auto-poll when waiting for admin resolution
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  useEffect(() => {
+    if (step === "success" && receiptPhase === "not_received") {
+      pollRef.current = setInterval(() => {
+        queryClient.invalidateQueries({ queryKey: getListMyWithdrawalsQueryKey() });
+      }, 8000);
+    }
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, [step, receiptPhase, queryClient]);
 
   // Latest in-app OTP notification scoped to the current withdrawal's phone number
   const latestOtpNotification = notifications
     ?.filter(
       (n) =>
         n.title === "Your withdrawal verification code" &&
-        // Match the phone used for this withdrawal so stale notifications aren't shown
         (!displayPhone || n.message.includes(displayPhone)),
     )
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
 
-  // Approved virtual card to show context on the card step (API returns masked number)
+  // Approved virtual card to show context on the card step
   const approvedCard = cards?.find((c) => c.status === "approved");
 
   // Determine initial step from existing withdrawal state
@@ -137,6 +172,7 @@ export default function Withdraw() {
       setAttemptsLeft(3 - latest.verificationAttempts);
       setStep(latest.otpVerified ? "verify" : "otp");
     } else if (latest?.status === "disbursed") {
+      setWithdrawalId(latest.id);
       setReceiptData({
         amount: latest.amount,
         phone: latest.mpesaPhone,
@@ -144,6 +180,7 @@ export default function Withdraw() {
       });
       setStep("success");
     } else if (latest?.status === "locked") {
+      setWithdrawalId(latest.id);
       setStep("locked");
     } else {
       setPhoneInput((prev) => prev || profile?.phone || "");
@@ -202,6 +239,7 @@ export default function Withdraw() {
       onSuccess: (data) => {
         queryClient.invalidateQueries({ queryKey: getListMyWithdrawalsQueryKey() });
         if (data.success) {
+          setWithdrawalId(data.withdrawal?.id ?? withdrawalId);
           setReceiptData({
             amount: data.withdrawal?.amount ?? "0",
             phone: data.withdrawal?.mpesaPhone ?? "",
@@ -219,6 +257,18 @@ export default function Withdraw() {
       onError: (err: any) => {
         const msg = err?.response?.data?.error ?? "Verification failed. Try again.";
         setVerifyError(msg);
+      },
+    },
+  });
+
+  const { mutate: confirmReceipt, isPending: confirmingReceipt } = useConfirmWithdrawalReceipt({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListMyWithdrawalsQueryKey() });
+      },
+      onError: (err: any) => {
+        const msg = err?.response?.data?.error ?? "Could not record your response.";
+        toast({ title: "Error", description: msg, variant: "destructive" });
       },
     },
   });
@@ -243,6 +293,11 @@ export default function Withdraw() {
     verify({ id: withdrawalId, data: { cardNumber: cardInput.trim() } });
   };
 
+  const handleConfirmReceipt = (received: boolean) => {
+    if (!withdrawalId) return;
+    confirmReceipt({ id: withdrawalId, data: { received } });
+  };
+
   const approvedAmount = Number(profile?.approvedLoanAmount ?? "0");
 
   // ── Loading ───────────────────────────────────────────────────────────────
@@ -255,13 +310,194 @@ export default function Withdraw() {
     );
   }
 
-  // ── Success receipt ───────────────────────────────────────────────────────
+  // ── Success / receipt flow ────────────────────────────────────────────────
   if (step === "success" && receiptData) {
+    // ── Sub-state: confirmed ────────────────────────────────────────────────
+    if (receiptPhase === "confirmed") {
+      return (
+        <div className="max-w-md space-y-6">
+          <div>
+            <h1 className="text-2xl font-semibold text-foreground">Loan disbursed</h1>
+            <p className="text-muted-foreground mt-1">Your loan has been received successfully.</p>
+          </div>
+          <Card className="border-green-200 bg-green-50">
+            <CardContent className="pt-6 space-y-4">
+              <div className="flex items-center justify-center">
+                <div className="h-16 w-16 rounded-full bg-green-100 flex items-center justify-center">
+                  <CheckCircle2 className="h-8 w-8 text-green-600" />
+                </div>
+              </div>
+              <div className="text-center">
+                <p className="text-3xl font-bold text-foreground">{formatCurrency(receiptData.amount)}</p>
+                <p className="text-sm text-muted-foreground mt-1">Sent to {receiptData.phone}</p>
+                <p className="text-xs text-muted-foreground mt-1">{formatDateTime(receiptData.at)}</p>
+                <Badge className="mt-2 bg-green-100 text-green-700 border-green-200">Funds confirmed received</Badge>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6 space-y-3 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Amount disbursed</span>
+                <span className="font-semibold">{formatCurrency(receiptData.amount)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">M-Pesa number</span>
+                <span className="font-mono">{receiptData.phone}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Interest rate</span>
+                <span>10% flat</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Repayment term</span>
+                <span>12 monthly installments</span>
+              </div>
+            </CardContent>
+          </Card>
+          <Button variant="outline" className="w-full" onClick={() => navigate("/loans")}>
+            View repayment schedule <ArrowRight className="h-4 w-4 ml-2" />
+          </Button>
+          <Button variant="ghost" className="w-full" onClick={() => navigate("/dashboard")}>
+            Back to dashboard
+          </Button>
+        </div>
+      );
+    }
+
+    // ── Sub-state: waiting for admin after "not received" ───────────────────
+    if (receiptPhase === "not_received") {
+      return (
+        <div className="max-w-md space-y-6">
+          <div>
+            <h1 className="text-2xl font-semibold text-foreground">Issue reported</h1>
+            <p className="text-muted-foreground mt-1">Our team is reviewing your case.</p>
+          </div>
+          <Card className="border-yellow-200 bg-yellow-50">
+            <CardContent className="pt-6 space-y-4">
+              <div className="flex items-center justify-center">
+                <div className="h-14 w-14 rounded-full bg-yellow-100 flex items-center justify-center">
+                  <Clock className="h-7 w-7 text-yellow-600" />
+                </div>
+              </div>
+              <div className="text-center space-y-1">
+                <p className="font-semibold text-yellow-800">Waiting for admin response</p>
+                <p className="text-sm text-yellow-700">
+                  You reported that <span className="font-semibold">{formatCurrency(receiptData.amount)}</span> was not received on{" "}
+                  <span className="font-mono">{receiptData.phone}</span>.
+                </p>
+                <p className="text-xs text-yellow-600 mt-2">
+                  Our team has been notified. We'll reply to your dashboard once we've reviewed the case.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="bg-muted/40">
+            <CardContent className="pt-4 pb-4 text-sm space-y-2">
+              <p className="text-xs font-medium text-foreground">What happens next?</p>
+              <ul className="text-xs text-muted-foreground space-y-1.5 list-disc pl-4">
+                <li>An admin will review your transaction and the reason funds may not have arrived.</li>
+                <li>They may reject the dispute, ask you to add a new virtual card, or reset your withdrawal so you can retry.</li>
+                <li>You'll receive a notification and the resolution will appear here.</li>
+              </ul>
+            </CardContent>
+          </Card>
+          <Button variant="ghost" className="w-full" onClick={() => navigate("/dashboard")}>
+            <ArrowLeft className="h-4 w-4 mr-2" /> Back to dashboard
+          </Button>
+        </div>
+      );
+    }
+
+    // ── Sub-state: admin has resolved the issue ─────────────────────────────
+    if (receiptPhase === "resolved" && activeWithdrawal) {
+      const resolution = activeWithdrawal.resolutionType;
+      const adminNote = activeWithdrawal.adminResponse;
+
+      const isRetry = resolution === "retry";
+      const isNewCard = resolution === "new_card_required";
+      const isRejected = resolution === "rejected";
+
+      return (
+        <div className="max-w-md space-y-6">
+          <div>
+            <h1 className="text-2xl font-semibold text-foreground">Admin response</h1>
+            <p className="text-muted-foreground mt-1">Your withdrawal dispute has been reviewed.</p>
+          </div>
+
+          <Card className={
+            isRejected
+              ? "border-red-200 bg-red-50"
+              : isNewCard
+                ? "border-blue-200 bg-blue-50"
+                : "border-green-200 bg-green-50"
+          }>
+            <CardContent className="pt-6 space-y-4">
+              <div className="flex items-center justify-center">
+                <div className={`h-14 w-14 rounded-full flex items-center justify-center ${
+                  isRejected ? "bg-red-100" : isNewCard ? "bg-blue-100" : "bg-green-100"
+                }`}>
+                  {isRejected
+                    ? <XCircle className="h-7 w-7 text-red-600" />
+                    : isNewCard
+                      ? <CreditCard className="h-7 w-7 text-blue-600" />
+                      : <RefreshCw className="h-7 w-7 text-green-600" />
+                  }
+                </div>
+              </div>
+              <div className="text-center space-y-1">
+                <p className={`font-semibold ${isRejected ? "text-red-800" : isNewCard ? "text-blue-800" : "text-green-800"}`}>
+                  {isRejected && "Dispute rejected"}
+                  {isNewCard && "New card required"}
+                  {isRetry && "Ready to retry"}
+                </p>
+                {adminNote && (
+                  <div className={`rounded-md px-3 py-2 mt-2 text-sm text-left ${
+                    isRejected ? "bg-red-100 text-red-800" : isNewCard ? "bg-blue-100 text-blue-800" : "bg-green-100 text-green-800"
+                  }`}>
+                    <p className="text-xs font-semibold mb-1">Admin note:</p>
+                    <p>{adminNote}</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {isRetry && (
+            <Button
+              className="w-full"
+              onClick={() => {
+                // Withdrawal was reset to pending_verification — restart the flow
+                queryClient.invalidateQueries({ queryKey: getListMyWithdrawalsQueryKey() });
+                setStep("loading");
+              }}
+            >
+              <RefreshCw className="h-4 w-4 mr-2" /> Retry withdrawal
+            </Button>
+          )}
+
+          {isNewCard && (
+            <Button
+              className="w-full"
+              onClick={() => navigate("/virtual-card")}
+            >
+              <CreditCard className="h-4 w-4 mr-2" /> Add a new virtual card
+            </Button>
+          )}
+
+          <Button variant="ghost" className="w-full" onClick={() => navigate("/dashboard")}>
+            <ArrowLeft className="h-4 w-4 mr-2" /> Back to dashboard
+          </Button>
+        </div>
+      );
+    }
+
+    // ── Sub-state: just disbursed — ask for receipt confirmation ────────────
     return (
       <div className="max-w-md space-y-6">
         <div>
           <h1 className="text-2xl font-semibold text-foreground">Loan disbursed</h1>
-          <p className="text-muted-foreground mt-1">Your loan has been sent successfully.</p>
+          <p className="text-muted-foreground mt-1">Your loan has been sent. Please confirm receipt below.</p>
         </div>
 
         <Card className="border-green-200 bg-green-50">
@@ -272,15 +508,9 @@ export default function Withdraw() {
               </div>
             </div>
             <div className="text-center">
-              <p className="text-3xl font-bold text-foreground">
-                {formatCurrency(receiptData.amount)}
-              </p>
-              <p className="text-sm text-muted-foreground mt-1">
-                Sent to {receiptData.phone}
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                {formatDateTime(receiptData.at)}
-              </p>
+              <p className="text-3xl font-bold text-foreground">{formatCurrency(receiptData.amount)}</p>
+              <p className="text-sm text-muted-foreground mt-1">Sent to {receiptData.phone}</p>
+              <p className="text-xs text-muted-foreground mt-1">{formatDateTime(receiptData.at)}</p>
             </div>
           </CardContent>
         </Card>
@@ -302,6 +532,38 @@ export default function Withdraw() {
             <div className="flex justify-between">
               <span className="text-muted-foreground">Repayment term</span>
               <span>12 monthly installments</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Receipt confirmation */}
+        <Card className="border-primary/20 bg-primary/5">
+          <CardHeader className="pb-2 pt-4">
+            <CardTitle className="text-base">Did you receive the funds?</CardTitle>
+          </CardHeader>
+          <CardContent className="pb-4 space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Confirm whether you received {formatCurrency(receiptData.amount)} on{" "}
+              <span className="font-mono font-medium">{receiptData.phone}</span>.
+            </p>
+            <div className="flex gap-3">
+              <Button
+                className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                disabled={confirmingReceipt}
+                onClick={() => handleConfirmReceipt(true)}
+              >
+                <ThumbsUp className="h-4 w-4 mr-2" />
+                {confirmingReceipt ? "Saving…" : "Yes, received"}
+              </Button>
+              <Button
+                variant="outline"
+                className="flex-1 border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
+                disabled={confirmingReceipt}
+                onClick={() => handleConfirmReceipt(false)}
+              >
+                <ThumbsDown className="h-4 w-4 mr-2" />
+                Not received
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -444,7 +706,6 @@ export default function Withdraw() {
 
         <StepProgress current="otp" />
 
-        {/* Inline OTP notification display */}
         {latestOtpNotification && (
           <Card className="border-blue-200 bg-blue-50">
             <CardContent className="pt-4 pb-4">
@@ -537,7 +798,6 @@ export default function Withdraw() {
 
       <StepProgress current="verify" />
 
-      {/* Summary reminder */}
       <Card className="bg-muted/40">
         <CardContent className="pt-4 pb-4 space-y-2 text-sm">
           <div className="flex justify-between">
@@ -557,7 +817,6 @@ export default function Withdraw() {
         </CardContent>
       </Card>
 
-      {/* Approved card hint */}
       {approvedCard && (
         <Card className="border-green-200 bg-green-50">
           <CardContent className="pt-4 pb-4">

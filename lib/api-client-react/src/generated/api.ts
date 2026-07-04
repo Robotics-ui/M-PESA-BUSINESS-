@@ -25,6 +25,7 @@ import type {
   CardVerifyBody,
   CardVerifyResponse,
   ChangePasswordInput,
+  ConfirmWithdrawalReceiptBody,
   CustomerDetail,
   CustomerLoanAmountInput,
   CustomerLoanStatusInput,
@@ -58,6 +59,7 @@ import type {
   RequestUploadUrlInput,
   RequestUploadUrlResult,
   RequestWithdrawalOtpResponse,
+  ResolveWithdrawalIssueBody,
   SignupInput,
   SystemSetting,
   SystemSettingInput,
@@ -3046,6 +3048,148 @@ export const useVerifyWithdrawalCard = <TError = ErrorType<ErrorEnvelope>,
         TContext
       > => {
       return useMutation(getVerifyWithdrawalCardMutationOptions(options));
+    }
+
+export const getConfirmWithdrawalReceiptUrl = (id: string,) => {
+
+
+
+
+  return `/api/withdrawals/${id}/confirm-receipt`
+}
+
+/**
+ * @summary Confirm whether the disbursed funds were received (customer)
+ */
+export const confirmWithdrawalReceipt = async (id: string,
+    confirmWithdrawalReceiptBody: ConfirmWithdrawalReceiptBody, options?: RequestInit): Promise<WithdrawalRequest> => {
+
+  return customFetch<WithdrawalRequest>(getConfirmWithdrawalReceiptUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(confirmWithdrawalReceiptBody)
+  }
+);}
+
+
+
+
+export const getConfirmWithdrawalReceiptMutationOptions = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof confirmWithdrawalReceipt>>, TError,{id: string;data: BodyType<ConfirmWithdrawalReceiptBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof confirmWithdrawalReceipt>>, TError,{id: string;data: BodyType<ConfirmWithdrawalReceiptBody>}, TContext> => {
+
+const mutationKey = ['confirmWithdrawalReceipt'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof confirmWithdrawalReceipt>>, {id: string;data: BodyType<ConfirmWithdrawalReceiptBody>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  confirmWithdrawalReceipt(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ConfirmWithdrawalReceiptMutationResult = NonNullable<Awaited<ReturnType<typeof confirmWithdrawalReceipt>>>
+    export type ConfirmWithdrawalReceiptMutationBody = BodyType<ConfirmWithdrawalReceiptBody>
+    export type ConfirmWithdrawalReceiptMutationError = ErrorType<ErrorEnvelope>
+
+    /**
+ * @summary Confirm whether the disbursed funds were received (customer)
+ */
+export const useConfirmWithdrawalReceipt = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof confirmWithdrawalReceipt>>, TError,{id: string;data: BodyType<ConfirmWithdrawalReceiptBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof confirmWithdrawalReceipt>>,
+        TError,
+        {id: string;data: BodyType<ConfirmWithdrawalReceiptBody>},
+        TContext
+      > => {
+      return useMutation(getConfirmWithdrawalReceiptMutationOptions(options));
+    }
+
+export const getResolveWithdrawalIssueUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin/withdrawals/${id}/resolve`
+}
+
+/**
+ * @summary Resolve a customer's "funds not received" report (staff only)
+ */
+export const resolveWithdrawalIssue = async (id: string,
+    resolveWithdrawalIssueBody: ResolveWithdrawalIssueBody, options?: RequestInit): Promise<WithdrawalRequest> => {
+
+  return customFetch<WithdrawalRequest>(getResolveWithdrawalIssueUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(resolveWithdrawalIssueBody)
+  }
+);}
+
+
+
+
+export const getResolveWithdrawalIssueMutationOptions = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resolveWithdrawalIssue>>, TError,{id: string;data: BodyType<ResolveWithdrawalIssueBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof resolveWithdrawalIssue>>, TError,{id: string;data: BodyType<ResolveWithdrawalIssueBody>}, TContext> => {
+
+const mutationKey = ['resolveWithdrawalIssue'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof resolveWithdrawalIssue>>, {id: string;data: BodyType<ResolveWithdrawalIssueBody>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  resolveWithdrawalIssue(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ResolveWithdrawalIssueMutationResult = NonNullable<Awaited<ReturnType<typeof resolveWithdrawalIssue>>>
+    export type ResolveWithdrawalIssueMutationBody = BodyType<ResolveWithdrawalIssueBody>
+    export type ResolveWithdrawalIssueMutationError = ErrorType<ErrorEnvelope>
+
+    /**
+ * @summary Resolve a customer's "funds not received" report (staff only)
+ */
+export const useResolveWithdrawalIssue = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resolveWithdrawalIssue>>, TError,{id: string;data: BodyType<ResolveWithdrawalIssueBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof resolveWithdrawalIssue>>,
+        TError,
+        {id: string;data: BodyType<ResolveWithdrawalIssueBody>},
+        TContext
+      > => {
+      return useMutation(getResolveWithdrawalIssueMutationOptions(options));
     }
 
 export const getListAllWithdrawalsUrl = () => {

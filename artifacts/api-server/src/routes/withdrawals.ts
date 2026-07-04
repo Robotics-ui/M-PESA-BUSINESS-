@@ -26,6 +26,12 @@ import {
   ListAllWithdrawalsResponse,
   UnlockWithdrawalParams,
   UnlockWithdrawalResponse,
+  ConfirmWithdrawalReceiptParams,
+  ConfirmWithdrawalReceiptBody,
+  ConfirmWithdrawalReceiptResponse,
+  ResolveWithdrawalIssueParams,
+  ResolveWithdrawalIssueBody,
+  ResolveWithdrawalIssueResponse,
 } from "@workspace/api-zod";
 
 const router: IRouter = Router();
@@ -51,6 +57,10 @@ function requireStaff(req: Request, res: Response): boolean {
   const role = req.user!.role;
   if (role !== "super_admin" && role !== "loan_officer") {
     res.status(403).json({ error: "Forbidden" });
+    return false;
+  }
+  if (req.user!.accountStatus === "suspended") {
+    res.status(403).json({ error: "Account suspended" });
     return false;
   }
   return true;
@@ -416,6 +426,10 @@ router.post(
       let updatedWithdrawal: typeof withdrawal;
       let loanId: string;
 
+      // If loanId is already set this is a retry after an admin-approved dispute.
+      // The loan already exists — skip creation and just re-disburse the transfer.
+      const isRetry = withdrawal.loanId != null;
+
       try {
         await db.transaction(async (tx) => {
           // Conditional update: only proceed if still pending_verification.
@@ -438,64 +452,69 @@ router.post(
 
           updatedWithdrawal = claimed;
 
-          // Create an auto-approved loan application for audit trail
-          const [application] = await tx
-            .insert(loanApplicationsTable)
-            .values({
-              customerId: req.user!.id,
-              amount: withdrawal.amount,
-              purpose: "Loan withdrawal (auto-approved)",
-              loanType: "business",
-              termMonths: 12,
-              status: "approved",
-              reviewedBy: req.user!.id,
-              reviewedAt: new Date(),
-              reviewNotes: "Auto-approved on successful virtual card verification.",
-            })
-            .returning();
+          if (isRetry) {
+            // Loan already exists from the original disbursement — reuse it.
+            loanId = withdrawal.loanId!;
+          } else {
+            // First-time disbursement: create loan application, loan, and repayments.
+            const [application] = await tx
+              .insert(loanApplicationsTable)
+              .values({
+                customerId: req.user!.id,
+                amount: withdrawal.amount,
+                purpose: "Loan withdrawal (auto-approved)",
+                loanType: "business",
+                termMonths: 12,
+                status: "approved",
+                reviewedBy: req.user!.id,
+                reviewedAt: new Date(),
+                reviewNotes: "Auto-approved on successful virtual card verification.",
+              })
+              .returning();
 
-          // Due date = 12 months from today
-          const dueDate = new Date();
-          dueDate.setMonth(dueDate.getMonth() + 12);
+            // Due date = 12 months from today
+            const dueDate = new Date();
+            dueDate.setMonth(dueDate.getMonth() + 12);
 
-          const [loan] = await tx
-            .insert(loansTable)
-            .values({
-              applicationId: application.id,
-              customerId: req.user!.id,
-              principal: withdrawal.amount,
-              interestRate: "10.00",
-              termMonths: 12,
-              status: "active",
-              disbursedAt: new Date(),
-              dueDate: dueDate.toISOString().split("T")[0],
-            })
-            .returning();
+            const [loan] = await tx
+              .insert(loansTable)
+              .values({
+                applicationId: application.id,
+                customerId: req.user!.id,
+                principal: withdrawal.amount,
+                interestRate: "10.00",
+                termMonths: 12,
+                status: "active",
+                disbursedAt: new Date(),
+                dueDate: dueDate.toISOString().split("T")[0],
+              })
+              .returning();
 
-          loanId = loan.id;
+            loanId = loan.id;
 
-          // Update withdrawal with loanId
-          await tx
-            .update(withdrawalRequestsTable)
-            .set({ loanId: loan.id })
-            .where(eq(withdrawalRequestsTable.id, withdrawal.id));
+            // Update withdrawal with loanId
+            await tx
+              .update(withdrawalRequestsTable)
+              .set({ loanId: loan.id })
+              .where(eq(withdrawalRequestsTable.id, withdrawal.id));
 
-          // Generate monthly repayment schedule (10% flat interest)
-          const principal = Number(withdrawal.amount);
-          const total = principal * 1.1;
-          const monthly = (total / 12).toFixed(2);
-          const repayments = Array.from({ length: 12 }, (_, i) => {
-            const d = new Date();
-            d.setMonth(d.getMonth() + i + 1);
-            return {
-              loanId: loan.id,
-              installmentNumber: i + 1,
-              amountDue: monthly,
-              dueDate: d.toISOString().split("T")[0],
-              status: "pending" as const,
-            };
-          });
-          await tx.insert(repaymentsTable).values(repayments);
+            // Generate monthly repayment schedule (10% flat interest)
+            const principal = Number(withdrawal.amount);
+            const total = principal * 1.1;
+            const monthly = (total / 12).toFixed(2);
+            const repayments = Array.from({ length: 12 }, (_, i) => {
+              const d = new Date();
+              d.setMonth(d.getMonth() + i + 1);
+              return {
+                loanId: loan.id,
+                installmentNumber: i + 1,
+                amountDue: monthly,
+                dueDate: d.toISOString().split("T")[0],
+                status: "pending" as const,
+              };
+            });
+            await tx.insert(repaymentsTable).values(repayments);
+          }
         });
       } catch (err: any) {
         if (err?.message === "ALREADY_PROCESSED") {
@@ -610,6 +629,212 @@ router.post(
 );
 
 /**
+ * POST /withdrawals/:id/confirm-receipt
+ * Customer confirms whether they received the disbursed funds.
+ * - received: true  → receiptStatus = "confirmed"
+ * - received: false → receiptStatus = "not_received", issueReportedAt = now, notifies staff
+ */
+router.post(
+  "/withdrawals/:id/confirm-receipt",
+  async (req: Request, res: Response): Promise<void> => {
+    if (!requireAuth(req, res)) return;
+
+    const params = ConfirmWithdrawalReceiptParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+
+    const parsed = ConfirmWithdrawalReceiptBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.message });
+      return;
+    }
+
+    const [withdrawal] = await db
+      .select()
+      .from(withdrawalRequestsTable)
+      .where(
+        and(
+          eq(withdrawalRequestsTable.id, params.data.id),
+          eq(withdrawalRequestsTable.customerId, req.user!.id),
+        ),
+      );
+
+    if (!withdrawal) {
+      res.status(404).json({ error: "Withdrawal request not found." });
+      return;
+    }
+
+    if (withdrawal.status !== "disbursed") {
+      res.status(409).json({ error: "Withdrawal has not been disbursed." });
+      return;
+    }
+
+    if (withdrawal.receiptStatus !== "pending") {
+      res.status(409).json({ error: `Receipt already ${withdrawal.receiptStatus === "confirmed" ? "confirmed" : "reported as not received"}.` });
+      return;
+    }
+
+    const newReceiptStatus = parsed.data.received ? "confirmed" : "not_received";
+
+    // Conditional update guards against concurrent requests: only proceeds if
+    // receiptStatus is still "pending", preventing double-confirmation races.
+    const [updated] = await db
+      .update(withdrawalRequestsTable)
+      .set({
+        receiptStatus: newReceiptStatus,
+        ...(newReceiptStatus === "not_received" ? { issueReportedAt: new Date() } : {}),
+      })
+      .where(
+        and(
+          eq(withdrawalRequestsTable.id, withdrawal.id),
+          eq(withdrawalRequestsTable.receiptStatus, "pending"),
+        ),
+      )
+      .returning();
+
+    if (!updated) {
+      res.status(409).json({ error: "Receipt confirmation was already recorded." });
+      return;
+    }
+
+    await db.insert(auditLogsTable).values({
+      userId: req.user!.id,
+      action: newReceiptStatus === "confirmed" ? "withdrawal.receipt_confirmed" : "withdrawal.issue_reported",
+      entityType: "withdrawal_request",
+      entityId: withdrawal.id,
+      details: `receiptStatus=${newReceiptStatus}`,
+    });
+
+    if (newReceiptStatus === "not_received") {
+      // Notify the customer their report was received
+      await db.insert(notificationsTable).values({
+        userId: req.user!.id,
+        channel: "in_app",
+        title: "Issue reported",
+        message: "We've received your report that funds were not received. Our team will review and respond to your dashboard shortly.",
+        status: "sent",
+      });
+    }
+
+    res.json(ConfirmWithdrawalReceiptResponse.parse(updated));
+  },
+);
+
+/**
+ * PATCH /admin/withdrawals/:id/resolve
+ * Staff resolves a customer's "funds not received" report.
+ * resolution types:
+ *   - "rejected"         → closes the issue; customer sees rejection reason
+ *   - "new_card_required"→ asks customer to add a new virtual card
+ *   - "retry"            → resets the withdrawal to pending_verification so customer can retry
+ */
+router.patch(
+  "/admin/withdrawals/:id/resolve",
+  async (req: Request, res: Response): Promise<void> => {
+    if (!requireStaff(req, res)) return;
+
+    const params = ResolveWithdrawalIssueParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+
+    const parsed = ResolveWithdrawalIssueBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.message });
+      return;
+    }
+
+    const [withdrawal] = await db
+      .select()
+      .from(withdrawalRequestsTable)
+      .where(eq(withdrawalRequestsTable.id, params.data.id));
+
+    if (!withdrawal) {
+      res.status(404).json({ error: "Withdrawal request not found." });
+      return;
+    }
+
+    if (withdrawal.receiptStatus !== "not_received") {
+      res.status(409).json({ error: "No unresolved 'not received' issue on this withdrawal." });
+      return;
+    }
+
+    if (withdrawal.resolvedAt) {
+      res.status(409).json({ error: "This issue has already been resolved." });
+      return;
+    }
+
+    const { resolution, reason } = parsed.data;
+
+    // Build the update payload.
+    // For "retry": reset transfer-verification state so the customer can re-attempt
+    // the M-Pesa transfer, but deliberately keep loanId intact — the loan record
+    // already exists and must not be duplicated. The verify handler skips loan
+    // creation when loanId is already set.
+    const updatePayload: Partial<typeof withdrawal> & Record<string, unknown> = {
+      adminResponse: reason,
+      resolutionType: resolution,
+      resolvedAt: new Date(),
+      resolvedBy: req.user!.id,
+    };
+
+    if (resolution === "retry") {
+      updatePayload.status = "pending_verification";
+      updatePayload.receiptStatus = "pending";
+      updatePayload.verificationAttempts = 0;
+      updatePayload.otpVerified = false;
+      updatePayload.lockedAt = null;
+      // loanId intentionally NOT reset — loan already exists; verify will skip re-creation
+    }
+
+    // Conditional update guard: only proceed if resolvedAt is still NULL
+    const [updated] = await db
+      .update(withdrawalRequestsTable)
+      .set(updatePayload)
+      .where(
+        and(
+          eq(withdrawalRequestsTable.id, withdrawal.id),
+          sql`${withdrawalRequestsTable.resolvedAt} IS NULL`,
+        ),
+      )
+      .returning();
+
+    if (!updated) {
+      res.status(409).json({ error: "This issue has already been resolved by another request." });
+      return;
+    }
+
+    await db.insert(auditLogsTable).values({
+      userId: req.user!.id,
+      action: "withdrawal.issue_resolved",
+      entityType: "withdrawal_request",
+      entityId: withdrawal.id,
+      details: `resolution=${resolution}`,
+    });
+
+    // Build a customer-facing notification message per resolution type
+    const notifMessages: Record<string, string> = {
+      rejected: `Your withdrawal dispute has been reviewed. Admin response: "${reason}"`,
+      new_card_required: `Please add a new virtual card and retry your withdrawal. Admin note: "${reason}"`,
+      retry: `Your withdrawal has been reset. You can now retry the withdrawal process. Admin note: "${reason}"`,
+    };
+
+    await db.insert(notificationsTable).values({
+      userId: withdrawal.customerId,
+      channel: "in_app",
+      title: "Withdrawal dispute resolved",
+      message: notifMessages[resolution] ?? reason,
+      status: "sent",
+    });
+
+    res.json(ResolveWithdrawalIssueResponse.parse(updated));
+  },
+);
+
+/**
  * GET /admin/withdrawals
  * List all withdrawal requests (staff only).
  */
@@ -626,9 +851,16 @@ router.get(
         mpesaPhone: withdrawalRequestsTable.mpesaPhone,
         virtualCardId: withdrawalRequestsTable.virtualCardId,
         status: withdrawalRequestsTable.status,
+        otpVerified: withdrawalRequestsTable.otpVerified,
         verificationAttempts: withdrawalRequestsTable.verificationAttempts,
         loanId: withdrawalRequestsTable.loanId,
         lockedAt: withdrawalRequestsTable.lockedAt,
+        receiptStatus: withdrawalRequestsTable.receiptStatus,
+        issueReportedAt: withdrawalRequestsTable.issueReportedAt,
+        adminResponse: withdrawalRequestsTable.adminResponse,
+        resolutionType: withdrawalRequestsTable.resolutionType,
+        resolvedAt: withdrawalRequestsTable.resolvedAt,
+        resolvedBy: withdrawalRequestsTable.resolvedBy,
         createdAt: withdrawalRequestsTable.createdAt,
         customerName: sql<string>`concat(coalesce(${usersTable.firstName},''), ' ', coalesce(${usersTable.lastName},''))`,
         customerEmail: usersTable.email,
