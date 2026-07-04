@@ -20,6 +20,7 @@ const STATUS_MAP: Record<string, { label: string; tone: Tone }> = {
   repaid: { label: "Repaid", tone: "slate" },
   overdue: { label: "Overdue", tone: "red" },
   defaulted: { label: "Defaulted", tone: "red" },
+  cancelled: { label: "Cancelled", tone: "slate" },
   paid: { label: "Paid", tone: "green" },
   suspended: { label: "Suspended", tone: "red" },
   sent: { label: "Sent", tone: "green" },

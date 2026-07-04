@@ -851,6 +851,73 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
+  /withdrawals/{id}/confirm-receipt:
+    post:
+      tags: [Withdrawals]
+      operationId: confirmWithdrawalReceipt
+      summary: Confirm whether the disbursed funds were received (customer)
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfirmWithdrawalReceiptBody'
+      responses:
+        '200':
+          description: Receipt confirmation recorded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WithdrawalRequest'
+        '404':
+          description: Withdrawal request not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '409':
+          description: Withdrawal is not awaiting receipt confirmation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /admin/withdrawals/{id}/resolve:
+    patch:
+      tags: [Admin]
+      operationId: resolveWithdrawalIssue
+      summary: Resolve a customer's "funds not received" report (staff only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResolveWithdrawalIssueBody'
+      responses:
+        '200':
+          description: Issue resolved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WithdrawalRequest'
+        '404':
+          description: Withdrawal request not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '409':
+          description: Withdrawal has no unresolved issue reported.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
   /admin/withdrawals:
     get:
       tags: [Admin]
@@ -1346,9 +1413,15 @@ components:
     WithdrawalStatus:
       type: string
       enum: [pending_verification, disbursed, failed, locked]
+    WithdrawalReceiptStatus:
+      type: string
+      enum: [pending, confirmed, not_received]
+    WithdrawalResolutionType:
+      type: string
+      enum: [rejected, new_card_required, retry]
     WithdrawalRequest:
       type: object
-      required: [id, customerId, amount, mpesaPhone, virtualCardId, status, otpVerified, verificationAttempts, loanId, lockedAt, createdAt]
+      required: [id, customerId, amount, mpesaPhone, virtualCardId, status, otpVerified, verificationAttempts, loanId, lockedAt, receiptStatus, issueReportedAt, adminResponse, resolutionType, resolvedAt, resolvedBy, createdAt]
       properties:
         id: { type: string }
         customerId: { type: string }
@@ -1361,7 +1434,31 @@ components:
         verificationAttempts: { type: integer }
         loanId: { type: [string, 'null'] }
         lockedAt: { type: [string, 'null'], format: date-time }
+        receiptStatus:
+          $ref: '#/components/schemas/WithdrawalReceiptStatus'
+        issueReportedAt: { type: [string, 'null'], format: date-time }
+        adminResponse: { type: [string, 'null'] }
+        resolutionType:
+          oneOf:
+            - $ref: '#/components/schemas/WithdrawalResolutionType'
+            - type: 'null'
+        resolvedAt: { type: [string, 'null'], format: date-time }
+        resolvedBy: { type: [string, 'null'] }
         createdAt: { type: string, format: date-time }
+    ConfirmWithdrawalReceiptBody:
+      type: object
+      required: [received]
+      properties:
+        received: { type: boolean }
+    ResolveWithdrawalIssueBody:
+      type: object
+      required: [resolution, reason]
+      properties:
+        resolution:
+          $ref: '#/components/schemas/WithdrawalResolutionType'
+        reason:
+          type: string
+          minLength: 3
     InitiateWithdrawalBody:
       type: object
       required: [mpesaPhone]

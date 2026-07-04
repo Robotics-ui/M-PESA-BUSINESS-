@@ -11,6 +11,14 @@ export const withdrawalStatuses = [
   "locked",
 ] as const;
 
+export const withdrawalReceiptStatuses = ["pending", "confirmed", "not_received"] as const;
+
+export const withdrawalResolutionTypes = [
+  "rejected",
+  "new_card_required",
+  "retry",
+] as const;
+
 export const withdrawalRequestsTable = pgTable("withdrawal_requests", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   customerId: varchar("customer_id")
@@ -28,6 +36,14 @@ export const withdrawalRequestsTable = pgTable("withdrawal_requests", {
   verificationAttempts: integer("verification_attempts").notNull().default(0),
   loanId: varchar("loan_id").references(() => loansTable.id, { onDelete: "set null" }),
   lockedAt: timestamp("locked_at", { withTimezone: true }),
+  receiptStatus: varchar("receipt_status", { enum: withdrawalReceiptStatuses })
+    .notNull()
+    .default("pending"),
+  issueReportedAt: timestamp("issue_reported_at", { withTimezone: true }),
+  adminResponse: varchar("admin_response", { length: 2000 }),
+  resolutionType: varchar("resolution_type", { enum: withdrawalResolutionTypes }),
+  resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+  resolvedBy: varchar("resolved_by").references(() => usersTable.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()

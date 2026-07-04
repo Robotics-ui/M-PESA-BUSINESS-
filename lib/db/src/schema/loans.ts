@@ -43,7 +43,7 @@ export const insertLoanApplicationSchema = createInsertSchema(loanApplicationsTa
 export type InsertLoanApplication = z.infer<typeof insertLoanApplicationSchema>;
 export type LoanApplication = typeof loanApplicationsTable.$inferSelect;
 
-export const loanStatuses = ["active", "repaid", "overdue", "defaulted"] as const;
+export const loanStatuses = ["active", "repaid", "overdue", "defaulted", "cancelled"] as const;
 
 export const loansTable = pgTable("loans", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
