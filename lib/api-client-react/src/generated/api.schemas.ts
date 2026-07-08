@@ -276,6 +276,7 @@ export const LoanStatus = {
   repaid: 'repaid',
   overdue: 'overdue',
   defaulted: 'defaulted',
+  cancelled: 'cancelled',
 } as const;
 
 export interface Loan {
@@ -299,6 +300,7 @@ export const RepaymentStatus = {
   pending: 'pending',
   paid: 'paid',
   overdue: 'overdue',
+  cancelled: 'cancelled',
 } as const;
 
 export interface Repayment {
@@ -371,6 +373,7 @@ export const WithdrawalResolutionType = {
   rejected: 'rejected',
   new_card_required: 'new_card_required',
   retry: 'retry',
+  reversed: 'reversed',
 } as const;
 
 export interface WithdrawalRequest {

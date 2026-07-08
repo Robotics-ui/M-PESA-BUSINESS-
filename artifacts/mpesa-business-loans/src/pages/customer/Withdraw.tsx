@@ -40,6 +40,7 @@ import {
   ThumbsDown,
   CalendarX,
   CalendarClock,
+  Undo2,
 } from "lucide-react";
 
 // ── Step progress bar ─────────────────────────────────────────────────────────
@@ -128,13 +129,17 @@ export default function Withdraw() {
   const activeWithdrawal = withdrawals?.find((w) => w.id === withdrawalId);
   const displayPhone = activeWithdrawal?.mpesaPhone ?? phoneInput ?? profile?.phone ?? "—";
 
-  // Poll for admin resolution when waiting
+  // Poll for admin resolution when waiting.
+  // A reversed dispute moves the withdrawal's status to "failed" (funds never
+  // landed), so the resolved/not_received checks must not require
+  // status === "disbursed" — they key off receiptStatus/resolvedAt instead.
   const receiptPhase: ReceiptPhase = (() => {
-    if (!activeWithdrawal || activeWithdrawal.status !== "disbursed") return "confirm";
-    if (activeWithdrawal.receiptStatus === "confirmed") return "confirmed";
+    if (!activeWithdrawal) return "confirm";
     if (activeWithdrawal.receiptStatus === "not_received") {
       return activeWithdrawal.resolvedAt ? "resolved" : "not_received";
     }
+    if (activeWithdrawal.status !== "disbursed") return "confirm";
+    if (activeWithdrawal.receiptStatus === "confirmed") return "confirmed";
     return "confirm";
   })();
 
@@ -182,6 +187,16 @@ export default function Withdraw() {
       setWithdrawalId(latest.id);
       setStep("expired");
     } else if (latest?.status === "disbursed") {
+      setWithdrawalId(latest.id);
+      setReceiptData({
+        amount: latest.amount,
+        phone: latest.mpesaPhone,
+        at: latest.createdAt,
+      });
+      setStep("success");
+    } else if (latest?.status === "failed" && latest.receiptStatus === "not_received") {
+      // A "not received" dispute that was resolved as a reversal — show the
+      // resolution screen instead of falling through to a fresh withdrawal.
       setWithdrawalId(latest.id);
       setReceiptData({
         amount: latest.amount,
@@ -516,6 +531,7 @@ export default function Withdraw() {
       const isRetry = resolution === "retry";
       const isNewCard = resolution === "new_card_required";
       const isRejected = resolution === "rejected";
+      const isReversed = resolution === "reversed";
 
       return (
         <div className="max-w-md space-y-6">
@@ -529,30 +545,40 @@ export default function Withdraw() {
               ? "border-red-200 bg-red-50"
               : isNewCard
                 ? "border-blue-200 bg-blue-50"
-                : "border-green-200 bg-green-50"
+                : isReversed
+                  ? "border-orange-200 bg-orange-50"
+                  : "border-green-200 bg-green-50"
           }>
             <CardContent className="pt-6 space-y-4">
               <div className="flex items-center justify-center">
                 <div className={`h-14 w-14 rounded-full flex items-center justify-center ${
-                  isRejected ? "bg-red-100" : isNewCard ? "bg-blue-100" : "bg-green-100"
+                  isRejected ? "bg-red-100" : isNewCard ? "bg-blue-100" : isReversed ? "bg-orange-100" : "bg-green-100"
                 }`}>
                   {isRejected
                     ? <XCircle className="h-7 w-7 text-red-600" />
                     : isNewCard
                       ? <CreditCard className="h-7 w-7 text-blue-600" />
-                      : <RefreshCw className="h-7 w-7 text-green-600" />
+                      : isReversed
+                        ? <Undo2 className="h-7 w-7 text-orange-600" />
+                        : <RefreshCw className="h-7 w-7 text-green-600" />
                   }
                 </div>
               </div>
               <div className="text-center space-y-1">
-                <p className={`font-semibold ${isRejected ? "text-red-800" : isNewCard ? "text-blue-800" : "text-green-800"}`}>
+                <p className={`font-semibold ${isRejected ? "text-red-800" : isNewCard ? "text-blue-800" : isReversed ? "text-orange-800" : "text-green-800"}`}>
                   {isRejected && "Dispute rejected"}
                   {isNewCard && "New card required"}
                   {isRetry && "Ready to retry"}
+                  {isReversed && "Funds reversed"}
                 </p>
+                {isReversed && (
+                  <p className="text-sm text-orange-700">
+                    The transfer to the wrong number is being reversed and the loan created for this withdrawal has been cancelled — you owe nothing for it.
+                  </p>
+                )}
                 {adminNote && (
                   <div className={`rounded-md px-3 py-2 mt-2 text-sm text-left ${
-                    isRejected ? "bg-red-100 text-red-800" : isNewCard ? "bg-blue-100 text-blue-800" : "bg-green-100 text-green-800"
+                    isRejected ? "bg-red-100 text-red-800" : isNewCard ? "bg-blue-100 text-blue-800" : isReversed ? "bg-orange-100 text-orange-800" : "bg-green-100 text-green-800"
                   }`}>
                     <p className="text-xs font-semibold mb-1">Admin note:</p>
                     <p>{adminNote}</p>
@@ -581,6 +607,22 @@ export default function Withdraw() {
               onClick={() => navigate("/virtual-card")}
             >
               <CreditCard className="h-4 w-4 mr-2" /> Add a new virtual card
+            </Button>
+          )}
+
+          {isReversed && (
+            <Button
+              className="w-full"
+              onClick={() => {
+                // This withdrawal is terminally "failed" — start a brand new
+                // withdrawal request rather than trying to resume this one.
+                setWithdrawalId(null);
+                setReceiptData(null);
+                setPhoneInput(profile?.phone ?? "");
+                setStep("phone");
+              }}
+            >
+              <Wallet className="h-4 w-4 mr-2" /> Start a new withdrawal
             </Button>
           )}
 

@@ -26,7 +26,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, formatDateTime } from "@/lib/format";
-import { Unlock, MessageSquare, CreditCard, RefreshCw, XCircle, CalendarPlus, CalendarClock } from "lucide-react";
+import { Unlock, MessageSquare, CreditCard, RefreshCw, XCircle, CalendarPlus, CalendarClock, Undo2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
 function StatusBadge({ status }: { status: string }) {
@@ -71,7 +71,7 @@ function ReceiptBadge({ receiptStatus, resolvedAt }: { receiptStatus: string; re
   return null;
 }
 
-type ResolutionType = "rejected" | "new_card_required" | "retry";
+type ResolutionType = "rejected" | "new_card_required" | "retry" | "reversed";
 
 interface ResolveDialogState {
   withdrawalId: string;
@@ -449,6 +449,14 @@ export default function Withdrawals() {
                     icon: RefreshCw,
                     color: "border-green-200 bg-green-50 text-green-800",
                     activeColor: "border-green-500 bg-green-100",
+                  },
+                  {
+                    value: "reversed" as ResolutionType,
+                    label: "Reverse (wrong number)",
+                    description: "Funds sent to the wrong M-Pesa number — reverse the transfer and cancel this loan so the customer owes nothing.",
+                    icon: Undo2,
+                    color: "border-orange-200 bg-orange-50 text-orange-800",
+                    activeColor: "border-orange-500 bg-orange-100",
                   },
                 ].map((opt) => {
                   const Icon = opt.icon;

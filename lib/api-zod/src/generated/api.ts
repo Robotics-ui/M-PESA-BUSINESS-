@@ -364,7 +364,7 @@ export const ListMyLoansResponseItem = zod.object({
   "principal": zod.string(),
   "interestRate": zod.string(),
   "termMonths": zod.number(),
-  "status": zod.enum(['active', 'repaid', 'overdue', 'defaulted']),
+  "status": zod.enum(['active', 'repaid', 'overdue', 'defaulted', 'cancelled']),
   "disbursedAt": zod.coerce.date(),
   "dueDate": zod.string(),
   "createdAt": zod.coerce.date(),
@@ -388,7 +388,7 @@ export const GetLoanRepaymentScheduleResponseItem = zod.object({
   "dueDate": zod.string(),
   "amountPaid": zod.string().nullable(),
   "paidAt": zod.coerce.date().nullable(),
-  "status": zod.enum(['pending', 'paid', 'overdue']),
+  "status": zod.enum(['pending', 'paid', 'overdue', 'cancelled']),
   "createdAt": zod.coerce.date()
 })
 export const GetLoanRepaymentScheduleResponse = zod.array(GetLoanRepaymentScheduleResponseItem)
@@ -547,7 +547,7 @@ export const GetCustomerDetailResponse = zod.object({
   "principal": zod.string(),
   "interestRate": zod.string(),
   "termMonths": zod.number(),
-  "status": zod.enum(['active', 'repaid', 'overdue', 'defaulted']),
+  "status": zod.enum(['active', 'repaid', 'overdue', 'defaulted', 'cancelled']),
   "disbursedAt": zod.coerce.date(),
   "dueDate": zod.string(),
   "createdAt": zod.coerce.date(),
@@ -878,7 +878,7 @@ export const ListMyWithdrawalsResponseItem = zod.object({
   "receiptStatus": zod.enum(['pending', 'confirmed', 'not_received']),
   "issueReportedAt": zod.coerce.date().nullable(),
   "adminResponse": zod.string().nullable(),
-  "resolutionType": zod.union([zod.enum(['rejected', 'new_card_required', 'retry']),zod.null()]),
+  "resolutionType": zod.union([zod.enum(['rejected', 'new_card_required', 'retry', 'reversed']),zod.null()]),
   "resolvedAt": zod.coerce.date().nullable(),
   "resolvedBy": zod.string().nullable(),
   "createdAt": zod.coerce.date()
@@ -913,7 +913,7 @@ export const InitiateWithdrawalResponse = zod.object({
   "receiptStatus": zod.enum(['pending', 'confirmed', 'not_received']),
   "issueReportedAt": zod.coerce.date().nullable(),
   "adminResponse": zod.string().nullable(),
-  "resolutionType": zod.union([zod.enum(['rejected', 'new_card_required', 'retry']),zod.null()]),
+  "resolutionType": zod.union([zod.enum(['rejected', 'new_card_required', 'retry', 'reversed']),zod.null()]),
   "resolvedAt": zod.coerce.date().nullable(),
   "resolvedBy": zod.string().nullable(),
   "createdAt": zod.coerce.date()
@@ -966,7 +966,7 @@ export const VerifyWithdrawalOtpResponse = zod.object({
   "receiptStatus": zod.enum(['pending', 'confirmed', 'not_received']),
   "issueReportedAt": zod.coerce.date().nullable(),
   "adminResponse": zod.string().nullable(),
-  "resolutionType": zod.union([zod.enum(['rejected', 'new_card_required', 'retry']),zod.null()]),
+  "resolutionType": zod.union([zod.enum(['rejected', 'new_card_required', 'retry', 'reversed']),zod.null()]),
   "resolvedAt": zod.coerce.date().nullable(),
   "resolvedBy": zod.string().nullable(),
   "createdAt": zod.coerce.date()
@@ -1008,7 +1008,7 @@ export const VerifyWithdrawalCardResponse = zod.object({
   "receiptStatus": zod.enum(['pending', 'confirmed', 'not_received']),
   "issueReportedAt": zod.coerce.date().nullable(),
   "adminResponse": zod.string().nullable(),
-  "resolutionType": zod.union([zod.enum(['rejected', 'new_card_required', 'retry']),zod.null()]),
+  "resolutionType": zod.union([zod.enum(['rejected', 'new_card_required', 'retry', 'reversed']),zod.null()]),
   "resolvedAt": zod.coerce.date().nullable(),
   "resolvedBy": zod.string().nullable(),
   "createdAt": zod.coerce.date()
@@ -1043,7 +1043,7 @@ export const ConfirmWithdrawalReceiptResponse = zod.object({
   "receiptStatus": zod.enum(['pending', 'confirmed', 'not_received']),
   "issueReportedAt": zod.coerce.date().nullable(),
   "adminResponse": zod.string().nullable(),
-  "resolutionType": zod.union([zod.enum(['rejected', 'new_card_required', 'retry']),zod.null()]),
+  "resolutionType": zod.union([zod.enum(['rejected', 'new_card_required', 'retry', 'reversed']),zod.null()]),
   "resolvedAt": zod.coerce.date().nullable(),
   "resolvedBy": zod.string().nullable(),
   "createdAt": zod.coerce.date()
@@ -1062,7 +1062,7 @@ export const resolveWithdrawalIssueBodyReasonMin = 3;
 
 
 export const ResolveWithdrawalIssueBody = zod.object({
-  "resolution": zod.enum(['rejected', 'new_card_required', 'retry']),
+  "resolution": zod.enum(['rejected', 'new_card_required', 'retry', 'reversed']),
   "reason": zod.string().min(resolveWithdrawalIssueBodyReasonMin)
 })
 
@@ -1082,7 +1082,7 @@ export const ResolveWithdrawalIssueResponse = zod.object({
   "receiptStatus": zod.enum(['pending', 'confirmed', 'not_received']),
   "issueReportedAt": zod.coerce.date().nullable(),
   "adminResponse": zod.string().nullable(),
-  "resolutionType": zod.union([zod.enum(['rejected', 'new_card_required', 'retry']),zod.null()]),
+  "resolutionType": zod.union([zod.enum(['rejected', 'new_card_required', 'retry', 'reversed']),zod.null()]),
   "resolvedAt": zod.coerce.date().nullable(),
   "resolvedBy": zod.string().nullable(),
   "createdAt": zod.coerce.date()
@@ -1108,7 +1108,7 @@ export const ListAllWithdrawalsResponseItem = zod.object({
   "receiptStatus": zod.enum(['pending', 'confirmed', 'not_received']),
   "issueReportedAt": zod.coerce.date().nullable(),
   "adminResponse": zod.string().nullable(),
-  "resolutionType": zod.union([zod.enum(['rejected', 'new_card_required', 'retry']),zod.null()]),
+  "resolutionType": zod.union([zod.enum(['rejected', 'new_card_required', 'retry', 'reversed']),zod.null()]),
   "resolvedAt": zod.coerce.date().nullable(),
   "resolvedBy": zod.string().nullable(),
   "createdAt": zod.coerce.date()
@@ -1150,7 +1150,7 @@ export const ExtendWithdrawalResponse = zod.object({
   "receiptStatus": zod.enum(['pending', 'confirmed', 'not_received']),
   "issueReportedAt": zod.coerce.date().nullable(),
   "adminResponse": zod.string().nullable(),
-  "resolutionType": zod.union([zod.enum(['rejected', 'new_card_required', 'retry']),zod.null()]),
+  "resolutionType": zod.union([zod.enum(['rejected', 'new_card_required', 'retry', 'reversed']),zod.null()]),
   "resolvedAt": zod.coerce.date().nullable(),
   "resolvedBy": zod.string().nullable(),
   "createdAt": zod.coerce.date()
@@ -1189,7 +1189,7 @@ export const SetWithdrawalRetryPeriodResponse = zod.object({
   "receiptStatus": zod.enum(['pending', 'confirmed', 'not_received']),
   "issueReportedAt": zod.coerce.date().nullable(),
   "adminResponse": zod.string().nullable(),
-  "resolutionType": zod.union([zod.enum(['rejected', 'new_card_required', 'retry']),zod.null()]),
+  "resolutionType": zod.union([zod.enum(['rejected', 'new_card_required', 'retry', 'reversed']),zod.null()]),
   "resolvedAt": zod.coerce.date().nullable(),
   "resolvedBy": zod.string().nullable(),
   "createdAt": zod.coerce.date()
@@ -1219,7 +1219,7 @@ export const UnlockWithdrawalResponse = zod.object({
   "receiptStatus": zod.enum(['pending', 'confirmed', 'not_received']),
   "issueReportedAt": zod.coerce.date().nullable(),
   "adminResponse": zod.string().nullable(),
-  "resolutionType": zod.union([zod.enum(['rejected', 'new_card_required', 'retry']),zod.null()]),
+  "resolutionType": zod.union([zod.enum(['rejected', 'new_card_required', 'retry', 'reversed']),zod.null()]),
   "resolvedAt": zod.coerce.date().nullable(),
   "resolvedBy": zod.string().nullable(),
   "createdAt": zod.coerce.date()

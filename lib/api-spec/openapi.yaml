@@ -1413,7 +1413,7 @@ components:
 
     LoanStatus:
       type: string
-      enum: [active, repaid, overdue, defaulted]
+      enum: [active, repaid, overdue, defaulted, cancelled]
     Loan:
       type: object
       required:
@@ -1444,7 +1444,7 @@ components:
 
     RepaymentStatus:
       type: string
-      enum: [pending, paid, overdue]
+      enum: [pending, paid, overdue, cancelled]
     Repayment:
       type: object
       required:
@@ -1500,7 +1500,7 @@ components:
       enum: [pending, confirmed, not_received]
     WithdrawalResolutionType:
       type: string
-      enum: [rejected, new_card_required, retry]
+      enum: [rejected, new_card_required, retry, reversed]
     WithdrawalRequest:
       type: object
       required: [id, customerId, amount, mpesaPhone, virtualCardId, status, otpVerified, verificationAttempts, loanId, lockedAt, expiresAt, retryAfterDays, receiptStatus, issueReportedAt, adminResponse, resolutionType, resolvedAt, resolvedBy, createdAt]

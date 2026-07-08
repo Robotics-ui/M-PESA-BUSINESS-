@@ -179,8 +179,15 @@ export default function Dashboard() {
                 <Clock className="h-4 w-4" /> Pending review
               </div>
             ) : (
-              <div className="flex items-center gap-1 text-red-700 text-sm font-medium">
-                <XCircle className="h-4 w-4" /> Rejected
+              <div>
+                <div className="flex items-center gap-1 text-red-700 text-sm font-medium mb-1">
+                  <XCircle className="h-4 w-4" /> Rejected
+                </div>
+                <Link href="/virtual-card">
+                  <Button size="sm" variant="outline" className="text-xs" data-testid="button-add-card-summary">
+                    Add card <ArrowRight className="h-3 w-3 ml-1" />
+                  </Button>
+                </Link>
               </div>
             )}
           </div>

@@ -786,6 +786,9 @@ router.post(
  *   - "rejected"         → closes the issue; customer sees rejection reason
  *   - "new_card_required"→ asks customer to add a new virtual card
  *   - "retry"            → resets the withdrawal to pending_verification so customer can retry
+ *   - "reversed"         → funds were sent to the wrong M-Pesa number; the transfer is
+ *                          reversed and the loan created for this withdrawal is cancelled
+ *                          so the customer is not held liable for repayment
  */
 router.patch(
   "/admin/withdrawals/:id/resolve",
@@ -847,17 +850,53 @@ router.patch(
       // loanId intentionally NOT reset — loan already exists; verify will skip re-creation
     }
 
-    // Conditional update guard: only proceed if resolvedAt is still NULL
-    const [updated] = await db
-      .update(withdrawalRequestsTable)
-      .set(updatePayload)
-      .where(
-        and(
-          eq(withdrawalRequestsTable.id, withdrawal.id),
-          sql`${withdrawalRequestsTable.resolvedAt} IS NULL`,
-        ),
-      )
-      .returning();
+    if (resolution === "reversed") {
+      // Funds were sent to the wrong M-Pesa number. The transfer is being
+      // reversed outside the app (M-Pesa reversal), so the withdrawal did not
+      // successfully deliver funds — mark it failed and free up the customer
+      // to retry with a corrected number.
+      updatePayload.status = "failed";
+    }
+
+    // Conditional update guard: only proceed if resolvedAt is still NULL.
+    // Also cancel the linked loan (and its repayment schedule) atomically so
+    // the customer is never left owing repayments for funds that were
+    // reversed away from them.
+    const updated = await db.transaction(async (tx) => {
+      const [row] = await tx
+        .update(withdrawalRequestsTable)
+        .set(updatePayload)
+        .where(
+          and(
+            eq(withdrawalRequestsTable.id, withdrawal.id),
+            sql`${withdrawalRequestsTable.resolvedAt} IS NULL`,
+          ),
+        )
+        .returning();
+
+      if (!row) return null;
+
+      if (resolution === "reversed" && withdrawal.loanId) {
+        await tx
+          .update(loansTable)
+          .set({ status: "cancelled" })
+          .where(eq(loansTable.id, withdrawal.loanId));
+
+        // Void any outstanding repayment installments so they never appear
+        // as collectible on a cancelled loan.
+        await tx
+          .update(repaymentsTable)
+          .set({ status: "cancelled" })
+          .where(
+            and(
+              eq(repaymentsTable.loanId, withdrawal.loanId),
+              sql`${repaymentsTable.status} IN ('pending', 'overdue')`,
+            ),
+          );
+      }
+
+      return row;
+    });
 
     if (!updated) {
       res.status(409).json({ error: "This issue has already been resolved by another request." });
@@ -877,6 +916,7 @@ router.patch(
       rejected: `Your withdrawal dispute has been reviewed. Admin response: "${reason}"`,
       new_card_required: `Please add a new virtual card and retry your withdrawal. Admin note: "${reason}"`,
       retry: `Your withdrawal has been reset. You can now retry the withdrawal process. Admin note: "${reason}"`,
+      reversed: `The funds sent to the wrong M-Pesa number are being reversed and the associated loan has been cancelled — you are not responsible for repaying it. Admin note: "${reason}"`,
     };
 
     await db.insert(notificationsTable).values({

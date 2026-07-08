@@ -18,6 +18,7 @@ export const withdrawalResolutionTypes = [
   "rejected",
   "new_card_required",
   "retry",
+  "reversed",
 ] as const;
 
 export const withdrawalRequestsTable = pgTable("withdrawal_requests", {

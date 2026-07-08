@@ -477,8 +477,8 @@ router.patch(
       return;
     }
 
-    if (existing.status !== "pending" && existing.status !== "hold") {
-      res.status(400).json({ error: "Only pending or on-hold applications can be edited" });
+    if (existing.status !== "pending" && existing.status !== "hold" && existing.status !== "approved") {
+      res.status(400).json({ error: "Only pending, on-hold, or approved applications can be edited" });
       return;
     }
 
@@ -493,6 +493,23 @@ router.patch(
       .set(updates)
       .where(eq(loanApplicationsTable.id, params.data.id))
       .returning();
+
+    // Keep the customer's approved loan limit in sync when an already-approved
+    // application's amount is changed after the fact.
+    if (existing.status === "approved" && parsed.data.amount !== undefined && parsed.data.amount !== existing.amount) {
+      await db
+        .update(customerProfilesTable)
+        .set({ approvedLoanAmount: parsed.data.amount })
+        .where(eq(customerProfilesTable.userId, application.customerId));
+
+      await db.insert(notificationsTable).values({
+        userId: application.customerId,
+        channel: "in_app",
+        title: "Approved loan amount updated",
+        message: `Your approved loan amount has been updated to ${parsed.data.amount}.`,
+        status: "sent",
+      });
+    }
 
     await db.insert(auditLogsTable).values({
       userId: req.user!.id,

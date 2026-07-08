@@ -208,6 +208,20 @@ export default function AdminLoans() {
                             <X className="h-4 w-4 text-destructive" />
                           </Button>
                         </div>
+                      ) : app.status === "approved" ? (
+                        <div className="flex justify-end gap-2 items-center">
+                          <Button
+                            size="icon"
+                            variant="outline"
+                            className="h-8 w-8"
+                            onClick={() => openEdit(app)}
+                            title="Edit approved amount"
+                            data-testid={`button-edit-${app.id}`}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <span className="text-xs text-muted-foreground">Reviewed</span>
+                        </div>
                       ) : (
                         <span className="text-xs text-muted-foreground">Reviewed</span>
                       )}
@@ -226,7 +240,10 @@ export default function AdminLoans() {
           <DialogHeader>
             <DialogTitle>Edit application</DialogTitle>
             <DialogDescription>
-              {editing && `Adjust ${editing.customerName ?? "this customer"}'s requested loan details before deciding.`}
+              {editing &&
+                (editing.status === "approved"
+                  ? `Update ${editing.customerName ?? "this customer"}'s approved loan amount. This will immediately update their approved limit on their dashboard.`
+                  : `Adjust ${editing.customerName ?? "this customer"}'s requested loan details before deciding.`)}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
