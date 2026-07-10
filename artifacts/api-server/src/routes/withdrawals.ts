@@ -160,6 +160,17 @@ router.post("/withdrawals", async (req: Request, res: Response): Promise<void> =
       return;
     }
 
+    // A disbursed withdrawal isn't "closed" until the customer confirms receipt
+    // (which zeroes the approved balance) or an issue is resolved by staff.
+    // Block new withdrawals in the meantime so the balance can't be drawn twice.
+    if (latest.status === "disbursed" && latest.receiptStatus !== "confirmed") {
+      res.status(409).json({
+        error:
+          "Your previous withdrawal is still awaiting receipt confirmation. Please confirm or report it before starting a new one.",
+      });
+      return;
+    }
+
     // Auto-expire a pending_verification request that has passed its deadline
     if (latest.status === "pending_verification" && latest.expiresAt && latest.expiresAt < new Date()) {
       await db
@@ -737,19 +748,37 @@ router.post(
 
     // Conditional update guards against concurrent requests: only proceeds if
     // receiptStatus is still "pending", preventing double-confirmation races.
-    const [updated] = await db
-      .update(withdrawalRequestsTable)
-      .set({
-        receiptStatus: newReceiptStatus,
-        ...(newReceiptStatus === "not_received" ? { issueReportedAt: new Date() } : {}),
-      })
-      .where(
-        and(
-          eq(withdrawalRequestsTable.id, withdrawal.id),
-          eq(withdrawalRequestsTable.receiptStatus, "pending"),
-        ),
-      )
-      .returning();
+    // When the customer confirms they received the funds, the withdrawn amount
+    // has been fully disbursed, so their available loan balance drops to zero
+    // in the same transaction — no partial withdrawals are supported.
+    const updated = await db.transaction(async (tx) => {
+      const [row] = await tx
+        .update(withdrawalRequestsTable)
+        .set({
+          receiptStatus: newReceiptStatus,
+          ...(newReceiptStatus === "not_received" ? { issueReportedAt: new Date() } : {}),
+        })
+        .where(
+          and(
+            eq(withdrawalRequestsTable.id, withdrawal.id),
+            eq(withdrawalRequestsTable.receiptStatus, "pending"),
+          ),
+        )
+        .returning();
+
+      if (!row) {
+        return null;
+      }
+
+      if (newReceiptStatus === "confirmed") {
+        await tx
+          .update(customerProfilesTable)
+          .set({ approvedLoanAmount: "0" })
+          .where(eq(customerProfilesTable.userId, withdrawal.customerId));
+      }
+
+      return row;
+    });
 
     if (!updated) {
       res.status(409).json({ error: "Receipt confirmation was already recorded." });
