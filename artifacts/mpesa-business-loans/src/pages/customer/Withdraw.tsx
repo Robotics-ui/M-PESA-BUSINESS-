@@ -187,13 +187,26 @@ export default function Withdraw() {
       setWithdrawalId(latest.id);
       setStep("expired");
     } else if (latest?.status === "disbursed") {
-      setWithdrawalId(latest.id);
-      setReceiptData({
-        amount: latest.amount,
-        phone: latest.mpesaPhone,
-        at: latest.createdAt,
-      });
-      setStep("success");
+      // If the previous withdrawal is fully confirmed AND a new loan has since
+      // been approved (approvedLoanAmount > 0), treat this as a fresh start so
+      // the user can withdraw their new loan — don't lock them into the old
+      // success screen.
+      const prevFullyDone =
+        latest.receiptStatus === "confirmed" &&
+        Number(profile?.approvedLoanAmount ?? 0) > 0;
+
+      if (prevFullyDone) {
+        setPhoneInput((prev) => prev || profile?.phone || "");
+        setStep("phone");
+      } else {
+        setWithdrawalId(latest.id);
+        setReceiptData({
+          amount: latest.amount,
+          phone: latest.mpesaPhone,
+          at: latest.createdAt,
+        });
+        setStep("success");
+      }
     } else if (latest?.status === "failed" && latest.receiptStatus === "not_received") {
       // A "not received" dispute that was resolved as a reversal — show the
       // resolution screen instead of falling through to a fresh withdrawal.
