@@ -26,6 +26,7 @@ import AdminAuditLogs from "@/pages/admin/AuditLogs";
 import AdminSettings from "@/pages/admin/Settings";
 import AdminVirtualCards from "@/pages/admin/VirtualCards";
 import AdminWithdrawals from "@/pages/admin/Withdrawals";
+import AdminNotifications from "@/pages/admin/Notifications";
 
 const queryClient = new QueryClient();
 
@@ -69,6 +70,7 @@ function StaffRoutes({ isSuperAdmin }: { isSuperAdmin: boolean }) {
         <Route path="/admin/virtual-cards" component={AdminVirtualCards} />
         <Route path="/admin/withdrawals" component={AdminWithdrawals} />
         <Route path="/admin/audit-logs" component={AdminAuditLogs} />
+        <Route path="/admin/notifications" component={AdminNotifications} />
         {isSuperAdmin && <Route path="/admin/settings" component={AdminSettings} />}
         <Route path="/">
           <Redirect to="/admin" />

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useListAllWithdrawals,
@@ -98,7 +98,8 @@ interface RetryPeriodDialogState {
 export default function Withdrawals() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("open_disputes");
+  const [autoFiltered, setAutoFiltered] = useState(false);
   const [resolveDialog, setResolveDialog] = useState<ResolveDialogState | null>(null);
   const [resolveReason, setResolveReason] = useState("");
   const [resolveType, setResolveType] = useState<ResolutionType>("rejected");
@@ -201,12 +202,25 @@ export default function Withdrawals() {
     setRetryPeriod({ id: retryPeriodDialog.withdrawalId, data: { days } });
   };
 
-  const filtered = withdrawals?.filter((w) => statusFilter === "all" || w.status === statusFilter);
-
-  // Count open disputes for the header
+  // Count open disputes for the header badge and auto-filter
   const openDisputeCount = withdrawals?.filter(
     (w) => w.receiptStatus === "not_received" && !w.resolvedAt,
   ).length ?? 0;
+
+  // When data first loads: if there are no open disputes, fall back to "all"
+  // so the page isn't confusingly empty. If disputes exist, stay on "open_disputes".
+  useEffect(() => {
+    if (!withdrawals || autoFiltered) return;
+    setAutoFiltered(true);
+    if (openDisputeCount === 0) setStatusFilter("all");
+  }, [withdrawals, autoFiltered, openDisputeCount]);
+
+  const filtered = withdrawals?.filter((w) => {
+    if (statusFilter === "open_disputes")
+      return w.receiptStatus === "not_received" && !w.resolvedAt;
+    if (statusFilter === "all") return true;
+    return w.status === statusFilter;
+  });
 
   const handleOpenResolve = (w: NonNullable<typeof withdrawals>[number]) => {
     setResolveDialog({
@@ -248,10 +262,13 @@ export default function Withdrawals() {
           </p>
         </div>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-48">
+          <SelectTrigger className="w-52">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
+            <SelectItem value="open_disputes">
+              ⚠ Open disputes{openDisputeCount > 0 ? ` (${openDisputeCount})` : ""}
+            </SelectItem>
             <SelectItem value="all">All statuses</SelectItem>
             <SelectItem value="pending_verification">Pending verification</SelectItem>
             <SelectItem value="disbursed">Disbursed</SelectItem>

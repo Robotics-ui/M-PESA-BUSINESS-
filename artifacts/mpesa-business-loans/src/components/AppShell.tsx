@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@workspace/replit-auth-web";
+import { useListMyNotifications } from "@workspace/api-client-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -42,6 +43,7 @@ const STAFF_NAV: NavItem[] = [
   { href: "/admin/virtual-cards", label: "Virtual cards", icon: CreditCard },
   { href: "/admin/withdrawals", label: "Withdrawals", icon: Wallet },
   { href: "/admin/audit-logs", label: "Audit logs", icon: ScrollText },
+  { href: "/admin/notifications", label: "Notifications", icon: Bell },
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -51,6 +53,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   const isStaff = user?.role === "super_admin" || user?.role === "loan_officer";
   const navItems = isStaff ? STAFF_NAV : CUSTOMER_NAV;
   const showSettings = user?.role === "super_admin";
+
+  // Unread notification count — used by both customer and staff nav
+  const { data: notifications } = useListMyNotifications();
+  const unreadCount = notifications?.filter((n) => !n.read).length ?? 0;
 
   return (
     <div className="min-h-screen w-full flex bg-background">
@@ -69,6 +75,8 @@ export function AppShell({ children }: { children: ReactNode }) {
           {navItems.map((item) => {
             const active = location === item.href;
             const Icon = item.icon;
+            const isNotifLink = item.href === "/notifications" || item.href === "/admin/notifications";
+            const badge = isNotifLink && unreadCount > 0 ? unreadCount : 0;
             return (
               <Link key={item.href} href={item.href}>
                 <a
@@ -80,8 +88,13 @@ export function AppShell({ children }: { children: ReactNode }) {
                       : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                   )}
                 >
-                  <Icon className="h-4 w-4" />
-                  {item.label}
+                  <Icon className="h-4 w-4 shrink-0" />
+                  <span className="flex-1">{item.label}</span>
+                  {badge > 0 && (
+                    <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-500 px-1.5 text-[10px] font-bold text-white">
+                      {badge > 99 ? "99+" : badge}
+                    </span>
+                  )}
                 </a>
               </Link>
             );
@@ -143,15 +156,24 @@ export function AppShell({ children }: { children: ReactNode }) {
             (item) => {
               const active = location === item.href;
               const Icon = item.icon;
+              const isNotifLink = item.href === "/notifications" || item.href === "/admin/notifications";
+              const badge = isNotifLink && unreadCount > 0 ? unreadCount : 0;
               return (
                 <Link key={item.href} href={item.href}>
                   <a
                     className={cn(
-                      "flex flex-col items-center gap-1 px-3 py-2 text-xs whitespace-nowrap border-b-2",
+                      "relative flex flex-col items-center gap-1 px-3 py-2 text-xs whitespace-nowrap border-b-2",
                       active ? "border-primary text-primary" : "border-transparent text-muted-foreground",
                     )}
                   >
-                    <Icon className="h-4 w-4" />
+                    <span className="relative">
+                      <Icon className="h-4 w-4" />
+                      {badge > 0 && (
+                        <span className="absolute -top-1.5 -right-1.5 inline-flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-orange-500 px-0.5 text-[9px] font-bold text-white">
+                          {badge > 9 ? "9+" : badge}
+                        </span>
+                      )}
+                    </span>
                     {item.label}
                   </a>
                 </Link>
