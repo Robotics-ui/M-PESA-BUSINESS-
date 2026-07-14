@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import {
   db,
   withdrawalRequestsTable,
@@ -802,6 +802,27 @@ router.post(
         message: "We've received your report that funds were not received. Our team will review and respond to your dashboard shortly.",
         status: "sent",
       });
+
+      // Notify all staff (super_admin + loan_officer) so they can review and resolve
+      const staffUsers = await db
+        .select({ id: usersTable.id })
+        .from(usersTable)
+        .where(inArray(usersTable.role, ["super_admin", "loan_officer"]));
+
+      if (staffUsers.length > 0) {
+        const customerName =
+          [req.user!.firstName, req.user!.lastName].filter(Boolean).join(" ") ||
+          req.user!.email;
+        await db.insert(notificationsTable).values(
+          staffUsers.map((staff) => ({
+            userId: staff.id,
+            channel: "in_app" as const,
+            title: "Withdrawal issue: funds not received",
+            message: `Customer ${customerName} reported that their disbursed funds were not received (withdrawal ID: ${updated.id}). Go to the Withdrawals page to review and resolve.`,
+            status: "sent" as const,
+          })),
+        );
+      }
     }
 
     res.json(ConfirmWithdrawalReceiptResponse.parse(updated));
