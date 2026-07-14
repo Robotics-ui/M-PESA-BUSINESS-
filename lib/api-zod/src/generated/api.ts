@@ -559,6 +559,23 @@ export const GetCustomerDetailResponse = zod.object({
 /**
  * @summary Suspend or activate a customer account
  */
+export const UpdateCustomerNameParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const UpdateCustomerNameBody = zod.object({
+  "firstName": zod.string().min(1),
+  "lastName": zod.string().min(1),
+})
+
+export const UpdateCustomerNameResponse = zod.object({
+  "id": zod.string(),
+  "firstName": zod.string().nullable(),
+  "lastName": zod.string().nullable(),
+  "email": zod.string().nullable(),
+})
+
+
 export const UpdateCustomerStatusParams = zod.object({
   "id": zod.coerce.string()
 })

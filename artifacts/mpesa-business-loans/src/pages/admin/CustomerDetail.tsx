@@ -7,6 +7,7 @@ import {
   getListCustomersQueryKey,
   useUpdateCustomerLoanAmount,
   useUpdateCustomerLoanStatus,
+  useUpdateCustomerName,
   useListAllVirtualCards,
   getListAllVirtualCardsQueryKey,
   useDecideVirtualCard,
@@ -38,6 +39,7 @@ import {
   Snowflake,
   Ban,
   Play,
+  Pencil,
 } from "lucide-react";
 
 type CardDecisionStatus = "approved" | "rejected" | "request_new";
@@ -47,6 +49,11 @@ export default function CustomerDetail() {
   const id = params.id!;
   const queryClient = useQueryClient();
   const { toast } = useToast();
+
+  // Name edit state
+  const [editingName, setEditingName] = useState(false);
+  const [firstNameInput, setFirstNameInput] = useState("");
+  const [lastNameInput, setLastNameInput] = useState("");
 
   // Loan amount edit state
   const [editingAmount, setEditingAmount] = useState(false);
@@ -99,6 +106,18 @@ export default function CustomerDetail() {
     },
   });
 
+  const { mutate: updateName, isPending: updatingName } = useUpdateCustomerName({
+    mutation: {
+      onSuccess: (data) => {
+        queryClient.invalidateQueries({ queryKey: getGetCustomerDetailQueryKey(id) });
+        queryClient.invalidateQueries({ queryKey: getListCustomersQueryKey() });
+        setEditingName(false);
+        toast({ title: "Name updated", description: `${data.firstName ?? ""} ${data.lastName ?? ""}`.trim() });
+      },
+      onError: () => toast({ title: "Failed to update name", variant: "destructive" }),
+    },
+  });
+
   const { mutate: decideCard, isPending: decidingCard } = useDecideVirtualCard({
     mutation: {
       onSuccess: () => {
@@ -137,9 +156,50 @@ export default function CustomerDetail() {
 
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground" data-testid="text-customer-name">
-            {fullName(customer.firstName, customer.lastName)}
-          </h1>
+          {editingName ? (
+            <div className="flex items-center gap-2 flex-wrap">
+              <Input
+                className="h-9 w-36 font-semibold text-lg"
+                placeholder="First name"
+                value={firstNameInput}
+                onChange={(e) => setFirstNameInput(e.target.value)}
+                autoFocus
+              />
+              <Input
+                className="h-9 w-36 font-semibold text-lg"
+                placeholder="Last name"
+                value={lastNameInput}
+                onChange={(e) => setLastNameInput(e.target.value)}
+              />
+              <Button
+                size="sm"
+                disabled={updatingName || !firstNameInput.trim() || !lastNameInput.trim()}
+                onClick={() => updateName({ id: customer.id, data: { firstName: firstNameInput.trim(), lastName: lastNameInput.trim() } })}
+              >
+                {updatingName ? "Saving…" : "Save"}
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setEditingName(false)}>Cancel</Button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-semibold text-foreground" data-testid="text-customer-name">
+                {fullName(customer.firstName, customer.lastName)}
+              </h1>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                title="Edit name"
+                onClick={() => {
+                  setFirstNameInput(customer.firstName ?? "");
+                  setLastNameInput(customer.lastName ?? "");
+                  setEditingName(true);
+                }}
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          )}
           <p className="text-muted-foreground text-sm">{customer.email}</p>
         </div>
         <div className="flex items-center gap-3">

@@ -1875,6 +1875,44 @@ export function useGetCustomerDetail<TData = Awaited<ReturnType<typeof getCustom
 
 
 
+export const getUpdateCustomerNameUrl = (id: string) => `/api/admin/customers/${id}/name`
+
+export const updateCustomerName = async (id: string, body: { firstName: string; lastName: string }, options?: RequestInit): Promise<{ id: string; firstName: string | null; lastName: string | null; email: string | null }> => {
+  return customFetch(getUpdateCustomerNameUrl(id), {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(body),
+  });
+}
+
+export const getUpdateCustomerNameMutationOptions = <TError = ErrorType<unknown>, TContext = unknown>(
+  options?: { mutation?: UseMutationOptions<Awaited<ReturnType<typeof updateCustomerName>>, TError, { id: string; data: { firstName: string; lastName: string } }, TContext>; request?: SecondParameter<typeof customFetch> }
+): UseMutationOptions<Awaited<ReturnType<typeof updateCustomerName>>, TError, { id: string; data: { firstName: string; lastName: string } }, TContext> => {
+  const mutationKey = ['updateCustomerName'];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateCustomerName>>, { id: string; data: { firstName: string; lastName: string } }> = (props) => {
+    const { id, data } = props ?? {};
+    return updateCustomerName(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+}
+
+export type UpdateCustomerNameMutationResult = NonNullable<Awaited<ReturnType<typeof updateCustomerName>>>
+export type UpdateCustomerNameMutationError = ErrorType<unknown>
+
+export const useUpdateCustomerName = <TError = ErrorType<unknown>, TContext = unknown>(
+  options?: { mutation?: UseMutationOptions<Awaited<ReturnType<typeof updateCustomerName>>, TError, { id: string; data: { firstName: string; lastName: string } }, TContext>; request?: SecondParameter<typeof customFetch> }
+): UseMutationResult<Awaited<ReturnType<typeof updateCustomerName>>, TError, { id: string; data: { firstName: string; lastName: string } }, TContext> => {
+  return useMutation(getUpdateCustomerNameMutationOptions(options));
+}
+
 export const getUpdateCustomerStatusUrl = (id: string,) => {
 
 

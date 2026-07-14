@@ -20,6 +20,9 @@ import {
   UpdateCustomerStatusParams,
   UpdateCustomerStatusBody,
   UpdateCustomerStatusResponse,
+  UpdateCustomerNameParams,
+  UpdateCustomerNameBody,
+  UpdateCustomerNameResponse,
   ListAllLoanApplicationsResponse,
   DecideLoanApplicationParams,
   DecideLoanApplicationBody,
@@ -243,6 +246,42 @@ router.get(
         loans,
       }),
     );
+  },
+);
+
+router.patch(
+  "/admin/customers/:id/name",
+  async (req: Request, res: Response): Promise<void> => {
+    if (!(await requireStaff(req, res))) return;
+
+    const params = UpdateCustomerNameParams.safeParse(req.params);
+    if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+
+    const parsed = UpdateCustomerNameBody.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+
+    const [updated] = await db
+      .update(usersTable)
+      .set({ firstName: parsed.data.firstName, lastName: parsed.data.lastName })
+      .where(and(eq(usersTable.id, params.data.id), eq(usersTable.role, "customer")))
+      .returning();
+
+    if (!updated) { res.status(404).json({ error: "Customer not found" }); return; }
+
+    await db.insert(auditLogsTable).values({
+      userId: req.user!.id,
+      action: "customer.name_updated",
+      entityType: "user",
+      entityId: updated.id,
+      details: `firstName=${parsed.data.firstName} lastName=${parsed.data.lastName}`,
+    });
+
+    res.json(UpdateCustomerNameResponse.parse({
+      id: updated.id,
+      firstName: updated.firstName,
+      lastName: updated.lastName,
+      email: updated.email,
+    }));
   },
 );
 
