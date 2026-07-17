@@ -1875,6 +1875,80 @@ export function useGetCustomerDetail<TData = Awaited<ReturnType<typeof getCustom
 
 
 
+// ─── Update Customer Phone ───────────────────────────────────────────────────
+
+export const getUpdateCustomerPhoneUrl = (id: string) => `/api/admin/customers/${id}/phone`
+
+export const updateCustomerPhone = async (id: string, body: { phone: string }, options?: RequestInit): Promise<{ id: string; phone: string | null; phoneVerified: boolean }> => {
+  return customFetch(getUpdateCustomerPhoneUrl(id), {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(body),
+  });
+}
+
+export const getUpdateCustomerPhoneMutationOptions = <TError = ErrorType<unknown>, TContext = unknown>(
+  options?: { mutation?: UseMutationOptions<Awaited<ReturnType<typeof updateCustomerPhone>>, TError, { id: string; data: { phone: string } }, TContext>; request?: SecondParameter<typeof customFetch> }
+): UseMutationOptions<Awaited<ReturnType<typeof updateCustomerPhone>>, TError, { id: string; data: { phone: string } }, TContext> => {
+  const mutationKey = ['updateCustomerPhone'];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateCustomerPhone>>, { id: string; data: { phone: string } }> = (props) => {
+    const { id, data } = props ?? {};
+    return updateCustomerPhone(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+}
+
+export const useUpdateCustomerPhone = <TError = ErrorType<unknown>, TContext = unknown>(
+  options?: { mutation?: UseMutationOptions<Awaited<ReturnType<typeof updateCustomerPhone>>, TError, { id: string; data: { phone: string } }, TContext>; request?: SecondParameter<typeof customFetch> }
+): UseMutationResult<Awaited<ReturnType<typeof updateCustomerPhone>>, TError, { id: string; data: { phone: string } }, TContext> => {
+  return useMutation(getUpdateCustomerPhoneMutationOptions(options));
+}
+
+// ─── Update Virtual Card Details ─────────────────────────────────────────────
+
+export const getUpdateVirtualCardDetailsUrl = (id: string) => `/api/admin/virtual-cards/${id}/details`
+
+export const updateVirtualCardDetails = async (id: string, body: { cardNumber: string; cardHolderName: string; bank?: string }, options?: RequestInit): Promise<{ id: string; customerId: string; cardNumber: string; cardHolderName: string; bank: string | null; status: 'pending' | 'approved' | 'rejected'; rejectionReason: string | null; adminNote: string | null; approvedBy: string | null; approvedAt: Date | null; createdAt: Date }> => {
+  return customFetch(getUpdateVirtualCardDetailsUrl(id), {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(body),
+  });
+}
+
+export const getUpdateVirtualCardDetailsMutationOptions = <TError = ErrorType<unknown>, TContext = unknown>(
+  options?: { mutation?: UseMutationOptions<Awaited<ReturnType<typeof updateVirtualCardDetails>>, TError, { id: string; data: { cardNumber: string; cardHolderName: string; bank?: string } }, TContext>; request?: SecondParameter<typeof customFetch> }
+): UseMutationOptions<Awaited<ReturnType<typeof updateVirtualCardDetails>>, TError, { id: string; data: { cardNumber: string; cardHolderName: string; bank?: string } }, TContext> => {
+  const mutationKey = ['updateVirtualCardDetails'];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateVirtualCardDetails>>, { id: string; data: { cardNumber: string; cardHolderName: string; bank?: string } }> = (props) => {
+    const { id, data } = props ?? {};
+    return updateVirtualCardDetails(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+}
+
+export const useUpdateVirtualCardDetails = <TError = ErrorType<unknown>, TContext = unknown>(
+  options?: { mutation?: UseMutationOptions<Awaited<ReturnType<typeof updateVirtualCardDetails>>, TError, { id: string; data: { cardNumber: string; cardHolderName: string; bank?: string } }, TContext>; request?: SecondParameter<typeof customFetch> }
+): UseMutationResult<Awaited<ReturnType<typeof updateVirtualCardDetails>>, TError, { id: string; data: { cardNumber: string; cardHolderName: string; bank?: string } }, TContext> => {
+  return useMutation(getUpdateVirtualCardDetailsMutationOptions(options));
+}
+
 export const getUpdateCustomerNameUrl = (id: string) => `/api/admin/customers/${id}/name`
 
 export const updateCustomerName = async (id: string, body: { firstName: string; lastName: string }, options?: RequestInit): Promise<{ id: string; firstName: string | null; lastName: string | null; email: string | null }> => {

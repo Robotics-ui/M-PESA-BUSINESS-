@@ -8,6 +8,8 @@ import {
   useUpdateCustomerLoanAmount,
   useUpdateCustomerLoanStatus,
   useUpdateCustomerName,
+  useUpdateCustomerPhone,
+  useUpdateVirtualCardDetails,
   useListAllVirtualCards,
   getListAllVirtualCardsQueryKey,
   useDecideVirtualCard,
@@ -40,6 +42,7 @@ import {
   Ban,
   Play,
   Pencil,
+  Phone,
 } from "lucide-react";
 
 type CardDecisionStatus = "approved" | "rejected" | "request_new";
@@ -59,11 +62,21 @@ export default function CustomerDetail() {
   const [editingAmount, setEditingAmount] = useState(false);
   const [amountInput, setAmountInput] = useState("");
 
+  // Phone edit state
+  const [editingPhone, setEditingPhone] = useState(false);
+  const [phoneInput, setPhoneInput] = useState("");
+
   // Card decision modal state
   const [selectedCard, setSelectedCard] = useState<string | null>(null);
   const [cardDecision, setCardDecision] = useState<CardDecisionStatus>("approved");
   const [cardReason, setCardReason] = useState("");
   const [cardAdminNote, setCardAdminNote] = useState("");
+
+  // Card details edit state
+  const [editingCardId, setEditingCardId] = useState<string | null>(null);
+  const [editCardNumber, setEditCardNumber] = useState("");
+  const [editCardHolder, setEditCardHolder] = useState("");
+  const [editCardBank, setEditCardBank] = useState("");
 
   const { data: customer, isLoading } = useGetCustomerDetail(id, {
     query: { enabled: !!id, queryKey: getGetCustomerDetailQueryKey(id) },
@@ -115,6 +128,28 @@ export default function CustomerDetail() {
         toast({ title: "Name updated", description: `${data.firstName ?? ""} ${data.lastName ?? ""}`.trim() });
       },
       onError: () => toast({ title: "Failed to update name", variant: "destructive" }),
+    },
+  });
+
+  const { mutate: updatePhone, isPending: updatingPhone } = useUpdateCustomerPhone({
+    mutation: {
+      onSuccess: (data) => {
+        queryClient.invalidateQueries({ queryKey: getGetCustomerDetailQueryKey(id) });
+        setEditingPhone(false);
+        toast({ title: "Phone updated", description: data.phone ?? "" });
+      },
+      onError: () => toast({ title: "Failed to update phone", variant: "destructive" }),
+    },
+  });
+
+  const { mutate: updateCardDetails, isPending: updatingCardDetails } = useUpdateVirtualCardDetails({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListAllVirtualCardsQueryKey() });
+        setEditingCardId(null);
+        toast({ title: "Card details updated" });
+      },
+      onError: () => toast({ title: "Failed to update card details", variant: "destructive" }),
     },
   });
 
@@ -345,12 +380,48 @@ export default function CustomerDetail() {
             <CardTitle className="text-base">Profile</CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-2 gap-y-3 text-sm">
-            <span className="text-muted-foreground">Phone</span>
-            <span className="text-foreground">
-              {customer.phone ?? "—"}{" "}
-              <Badge variant="outline" className="ml-1">
-                {customer.phoneVerified ? "Verified" : "Unverified"}
-              </Badge>
+            <span className="text-muted-foreground flex items-center gap-1">
+              <Phone className="h-3 w-3" /> Phone
+            </span>
+            <span className="text-foreground flex items-center gap-2 flex-wrap">
+              {editingPhone ? (
+                <>
+                  <Input
+                    className="h-7 w-36 text-sm"
+                    placeholder="+254..."
+                    value={phoneInput}
+                    onChange={(e) => setPhoneInput(e.target.value)}
+                    autoFocus
+                  />
+                  <Button
+                    size="sm"
+                    className="h-7 text-xs"
+                    disabled={updatingPhone || !phoneInput.trim()}
+                    onClick={() => updatePhone({ id, data: { phone: phoneInput.trim() } })}
+                  >
+                    {updatingPhone ? "Saving…" : "Save"}
+                  </Button>
+                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setEditingPhone(false)}>
+                    Cancel
+                  </Button>
+                </>
+              ) : (
+                <>
+                  {customer.phone ?? "—"}
+                  <Badge variant="outline" className="ml-1">
+                    {customer.phoneVerified ? "Verified" : "Unverified"}
+                  </Badge>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-5 w-5 text-muted-foreground hover:text-foreground"
+                    title="Edit phone"
+                    onClick={() => { setPhoneInput(customer.phone ?? ""); setEditingPhone(true); }}
+                  >
+                    <Pencil className="h-3 w-3" />
+                  </Button>
+                </>
+              )}
             </span>
             <span className="text-muted-foreground">National ID</span>
             <span className="text-foreground">{customer.profile?.nationalIdNumber ?? "—"}</span>
@@ -446,33 +517,50 @@ export default function CustomerDetail() {
                     </TableCell>
                     <TableCell className="text-muted-foreground text-sm">{formatDate(card.createdAt)}</TableCell>
                     <TableCell className="text-right">
-                      {card.status === "pending" && (
-                        <div className="flex items-center justify-end gap-1">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="text-green-700 border-green-200 hover:bg-green-50"
-                            onClick={() => { setSelectedCard(card.id); setCardDecision("approved"); setCardReason(""); setCardAdminNote(""); }}
-                          >
-                            <CheckCircle2 className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="text-red-700 border-red-200 hover:bg-red-50"
-                            onClick={() => { setSelectedCard(card.id); setCardDecision("rejected"); setCardReason(""); setCardAdminNote(""); }}
-                          >
-                            <XCircle className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => { setSelectedCard(card.id); setCardDecision("request_new"); setCardReason(""); setCardAdminNote(""); }}
-                          >
-                            <RefreshCw className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      )}
+                      <div className="flex items-center justify-end gap-1">
+                        {/* Edit card details */}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          title="Edit card details"
+                          onClick={() => {
+                            setEditingCardId(card.id);
+                            setEditCardNumber(card.cardNumber);
+                            setEditCardHolder(card.cardHolderName);
+                            setEditCardBank(card.bank ?? "");
+                          }}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        {/* Status decision (pending only) */}
+                        {card.status === "pending" && (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-green-700 border-green-200 hover:bg-green-50"
+                              onClick={() => { setSelectedCard(card.id); setCardDecision("approved"); setCardReason(""); setCardAdminNote(""); }}
+                            >
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-red-700 border-red-200 hover:bg-red-50"
+                              onClick={() => { setSelectedCard(card.id); setCardDecision("rejected"); setCardReason(""); setCardAdminNote(""); }}
+                            >
+                              <XCircle className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => { setSelectedCard(card.id); setCardDecision("request_new"); setCardReason(""); setCardAdminNote(""); }}
+                            >
+                              <RefreshCw className="h-3.5 w-3.5" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -481,6 +569,58 @@ export default function CustomerDetail() {
           )}
         </CardContent>
       </Card>
+
+      {/* Edit card details dialog */}
+      <Dialog open={!!editingCardId} onOpenChange={(open) => { if (!open) setEditingCardId(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit virtual card details</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label>Card number</Label>
+              <Input
+                value={editCardNumber}
+                onChange={(e) => setEditCardNumber(e.target.value)}
+                placeholder="Full card number"
+              />
+              <p className="text-xs text-muted-foreground">Enter the full card number (it will be masked for the customer).</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Card holder name</Label>
+              <Input
+                value={editCardHolder}
+                onChange={(e) => setEditCardHolder(e.target.value)}
+                placeholder="Name on card"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Bank / issuer</Label>
+              <Input
+                value={editCardBank}
+                onChange={(e) => setEditCardBank(e.target.value)}
+                placeholder="e.g. KCB, Equity, MPESA"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingCardId(null)}>Cancel</Button>
+            <Button
+              disabled={updatingCardDetails || !editCardNumber.trim() || !editCardHolder.trim()}
+              onClick={() => {
+                if (editingCardId) {
+                  updateCardDetails({
+                    id: editingCardId,
+                    data: { cardNumber: editCardNumber.trim(), cardHolderName: editCardHolder.trim(), bank: editCardBank.trim() || undefined },
+                  });
+                }
+              }}
+            >
+              {updatingCardDetails ? "Saving…" : "Save changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Loan applications */}
       <Card>

@@ -44,6 +44,12 @@ import {
   UpdateCustomerLoanStatusParams,
   UpdateCustomerLoanStatusBody,
   UpdateCustomerLoanStatusResponse,
+  UpdateCustomerPhoneParams,
+  UpdateCustomerPhoneBody,
+  UpdateCustomerPhoneResponse,
+  UpdateVirtualCardDetailsParams,
+  UpdateVirtualCardDetailsBody,
+  UpdateVirtualCardDetailsResponse,
 } from "@workspace/api-zod";
 
 const router: IRouter = Router();
@@ -873,6 +879,89 @@ router.patch(
     }
 
     res.json(UpdateCustomerLoanStatusResponse.parse(profile));
+  },
+);
+
+// ─── Customer Phone ──────────────────────────────────────────────────────────
+
+router.patch(
+  "/admin/customers/:id/phone",
+  async (req: Request, res: Response): Promise<void> => {
+    if (!(await requireStaff(req, res))) return;
+
+    const params = UpdateCustomerPhoneParams.safeParse(req.params);
+    if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+
+    const parsed = UpdateCustomerPhoneBody.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+
+    // Ensure the target user is a customer
+    const [user] = await db
+      .select({ id: usersTable.id })
+      .from(usersTable)
+      .where(and(eq(usersTable.id, params.data.id), eq(usersTable.role, "customer")));
+    if (!user) { res.status(404).json({ error: "Customer not found" }); return; }
+
+    // Upsert the profile row (create if missing)
+    const [profile] = await db
+      .insert(customerProfilesTable)
+      .values({ userId: params.data.id, phone: parsed.data.phone, phoneVerified: false })
+      .onConflictDoUpdate({
+        target: customerProfilesTable.userId,
+        set: { phone: parsed.data.phone, phoneVerified: false },
+      })
+      .returning();
+
+    await db.insert(auditLogsTable).values({
+      userId: req.user!.id,
+      action: "customer.phone_updated",
+      entityType: "user",
+      entityId: params.data.id,
+      details: `phone=${parsed.data.phone}`,
+    });
+
+    res.json(UpdateCustomerPhoneResponse.parse({
+      id: params.data.id,
+      phone: profile.phone,
+      phoneVerified: profile.phoneVerified ?? false,
+    }));
+  },
+);
+
+// ─── Virtual Card Details ────────────────────────────────────────────────────
+
+router.patch(
+  "/admin/virtual-cards/:id/details",
+  async (req: Request, res: Response): Promise<void> => {
+    if (!(await requireStaff(req, res))) return;
+
+    const params = UpdateVirtualCardDetailsParams.safeParse(req.params);
+    if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+
+    const parsed = UpdateVirtualCardDetailsBody.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+
+    const [card] = await db
+      .update(virtualCardsTable)
+      .set({
+        cardNumber: parsed.data.cardNumber,
+        cardHolderName: parsed.data.cardHolderName,
+        bank: parsed.data.bank ?? null,
+      })
+      .where(eq(virtualCardsTable.id, params.data.id))
+      .returning();
+
+    if (!card) { res.status(404).json({ error: "Card not found" }); return; }
+
+    await db.insert(auditLogsTable).values({
+      userId: req.user!.id,
+      action: "virtual_card.details_updated",
+      entityType: "virtual_card",
+      entityId: card.id,
+      details: `cardHolderName=${parsed.data.cardHolderName}`,
+    });
+
+    res.json(UpdateVirtualCardDetailsResponse.parse(card));
   },
 );
 

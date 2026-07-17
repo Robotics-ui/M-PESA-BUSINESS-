@@ -811,6 +811,52 @@ export const DecideVirtualCardResponse = zod.object({
 
 
 /**
+ * @summary Edit a customer's phone number (admin)
+ */
+export const UpdateCustomerPhoneParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const UpdateCustomerPhoneBody = zod.object({
+  "phone": zod.string().min(1)
+})
+
+export const UpdateCustomerPhoneResponse = zod.object({
+  "id": zod.string(),
+  "phone": zod.string().nullable(),
+  "phoneVerified": zod.boolean()
+})
+
+
+/**
+ * @summary Edit virtual card details (admin)
+ */
+export const UpdateVirtualCardDetailsParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const UpdateVirtualCardDetailsBody = zod.object({
+  "cardNumber": zod.string().min(1),
+  "cardHolderName": zod.string().min(1),
+  "bank": zod.string().optional()
+})
+
+export const UpdateVirtualCardDetailsResponse = zod.object({
+  "id": zod.string(),
+  "customerId": zod.string(),
+  "cardNumber": zod.string(),
+  "cardHolderName": zod.string(),
+  "bank": zod.string().nullable(),
+  "status": zod.enum(['pending', 'approved', 'rejected']),
+  "rejectionReason": zod.string().nullable(),
+  "adminNote": zod.string().nullable(),
+  "approvedBy": zod.string().nullable(),
+  "approvedAt": zod.coerce.date().nullable(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
  * @summary Set the approved loan amount for a customer
  */
 export const UpdateCustomerLoanAmountParams = zod.object({
