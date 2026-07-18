@@ -25,6 +25,51 @@ async function requireStaff(req: Request, res: Response): Promise<boolean> {
 }
 
 /**
+ * PUT /my/guarantor
+ * Customer creates or updates their own company guarantor details.
+ */
+router.put("/my/guarantor", async (req: Request, res: Response): Promise<void> => {
+  if (!requireAuth(req, res)) return;
+
+  const parsed = UpsertGuarantorBody.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+
+  const [guarantor] = await db
+    .insert(guarantorsTable)
+    .values({
+      customerId: req.user!.id,
+      companyName: parsed.data.companyName,
+      companyRegistration: parsed.data.companyRegistration ?? null,
+      contactPerson: parsed.data.contactPerson ?? null,
+      phone: parsed.data.phone ?? null,
+      address: parsed.data.address ?? null,
+      addedBy: req.user!.id,
+    })
+    .onConflictDoUpdate({
+      target: guarantorsTable.customerId,
+      set: {
+        companyName: parsed.data.companyName,
+        companyRegistration: parsed.data.companyRegistration ?? null,
+        contactPerson: parsed.data.contactPerson ?? null,
+        phone: parsed.data.phone ?? null,
+        address: parsed.data.address ?? null,
+        updatedAt: new Date(),
+      },
+    })
+    .returning();
+
+  await db.insert(auditLogsTable).values({
+    userId: req.user!.id,
+    action: "guarantor.self_upserted",
+    entityType: "guarantor",
+    entityId: guarantor.id,
+    details: `company=${parsed.data.companyName}`,
+  });
+
+  res.json(UpsertGuarantorResponse.parse(guarantor));
+});
+
+/**
  * GET /my/guarantor
  * Customer fetches their own company guarantor record.
  */

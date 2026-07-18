@@ -20,6 +20,7 @@ import {
   LogOut,
   CreditCard,
   ShieldAlert,
+  Building2,
 } from "lucide-react";
 
 interface NavItem {
@@ -33,6 +34,7 @@ const CUSTOMER_NAV: NavItem[] = [
   { href: "/apply", label: "Apply for a loan", icon: FileText },
   { href: "/loans", label: "My loans", icon: Wallet },
   { href: "/virtual-card", label: "Virtual card", icon: CreditCard },
+  { href: "/guarantor", label: "Company guarantor", icon: Building2 },
   { href: "/violations", label: "Warnings", icon: ShieldAlert },
   { href: "/notifications", label: "Notifications", icon: Bell },
   { href: "/profile", label: "Profile", icon: UserCircle },

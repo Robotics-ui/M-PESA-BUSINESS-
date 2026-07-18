@@ -1303,6 +1303,31 @@ export const UnlockWithdrawalResponse = zod.object({
 
 
 /**
+ * @summary Customer creates or updates their own company guarantor
+ */
+export const UpsertMyGuarantorBody = zod.object({
+  "companyName": zod.string().min(1),
+  "companyRegistration": zod.string().optional(),
+  "contactPerson": zod.string().optional(),
+  "phone": zod.string().optional(),
+  "address": zod.string().optional()
+})
+
+export const UpsertMyGuarantorResponse = zod.object({
+  "id": zod.string(),
+  "customerId": zod.string(),
+  "companyName": zod.string(),
+  "companyRegistration": zod.string().nullish(),
+  "contactPerson": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "address": zod.string().nullish(),
+  "addedBy": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
  * @summary Customer fetches their own company guarantor
  */
 export const GetMyGuarantorResponse = zod.object({
