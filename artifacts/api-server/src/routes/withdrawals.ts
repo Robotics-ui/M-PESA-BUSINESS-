@@ -1059,6 +1059,9 @@ router.patch(
         status: "pending_verification",
         verificationAttempts: 0,
         lockedAt: null,
+        // Reset OTP so the customer must re-verify their M-Pesa number before
+        // retrying card verification — required on every withdrawal attempt.
+        otpVerified: false,
       })
       .where(eq(withdrawalRequestsTable.id, withdrawal.id))
       .returning();
