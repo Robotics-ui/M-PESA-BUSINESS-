@@ -745,7 +745,7 @@ export default function CustomerDetail() {
                     <span className={`text-xs font-semibold uppercase tracking-wide ${v.type === "violation" ? "text-red-700" : "text-orange-700"}`}>
                       {v.type === "violation" ? "Policy violation" : "Warning"}
                     </span>
-                    <span className="text-xs text-muted-foreground">{formatDateTime(v.createdAt.toISOString())}</span>
+                    <span className="text-xs text-muted-foreground">{formatDateTime(v.createdAt)}</span>
                   </div>
                   <p className="text-foreground">{v.reason}</p>
                   {v.acknowledged && (

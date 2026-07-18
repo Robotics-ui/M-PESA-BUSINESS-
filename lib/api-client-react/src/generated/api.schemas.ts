@@ -607,6 +607,74 @@ export interface CustomerStatusUpdate {
   accountStatus: AccountStatus;
 }
 
+export interface UpdateCustomerNameBody {
+  /** @minLength 1 */
+  firstName: string;
+  /** @minLength 1 */
+  lastName: string;
+}
+
+export interface UpdateCustomerNameResponse {
+  id: string;
+  /** @nullable */
+  firstName: string | null;
+  /** @nullable */
+  lastName: string | null;
+  /** @nullable */
+  email: string | null;
+}
+
+export interface UpdateCustomerPhoneBody {
+  /** @minLength 1 */
+  phone: string;
+}
+
+export interface UpdateCustomerPhoneResponse {
+  id: string;
+  /** @nullable */
+  phone: string | null;
+  phoneVerified: boolean;
+}
+
+export interface UpdateVirtualCardDetailsBody {
+  /** @minLength 1 */
+  cardNumber: string;
+  /** @minLength 1 */
+  cardHolderName: string;
+  bank?: string;
+}
+
+export type ViolationType = typeof ViolationType[keyof typeof ViolationType];
+
+
+export const ViolationType = {
+  warning: 'warning',
+  violation: 'violation',
+} as const;
+
+export interface ViolationItem {
+  id: string;
+  customerId: string;
+  issuedBy: string;
+  /** @nullable */
+  issuedByName: string | null;
+  type: ViolationType;
+  reason: string;
+  acknowledged: boolean;
+  createdAt: string;
+}
+
+export interface IssueViolationBody {
+  type: ViolationType;
+  /** @minLength 1 */
+  reason: string;
+}
+
+export interface AcknowledgeViolationResponse {
+  id: string;
+  acknowledged: boolean;
+}
+
 export interface SystemSetting {
   key: string;
   value: string;
@@ -663,17 +731,3 @@ export const ListAllVirtualCardsStatus = {
   rejected: 'rejected',
 } as const;
 
-
-
-export type ViolationType = 'warning' | 'violation';
-
-export type ViolationItem = {
-  id: string;
-  customerId: string;
-  issuedBy: string;
-  issuedByName: string | null;
-  type: ViolationType;
-  reason: string;
-  acknowledged: boolean;
-  createdAt: Date;
-};

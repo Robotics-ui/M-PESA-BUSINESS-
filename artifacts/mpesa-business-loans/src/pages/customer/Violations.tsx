@@ -93,7 +93,7 @@ export default function Violations() {
                     <p className="text-sm text-foreground">{v.reason}</p>
                     <div className="flex items-center justify-between">
                       <p className="text-xs text-muted-foreground">
-                        {formatDateTime(v.createdAt.toISOString())}
+                        {formatDateTime(v.createdAt)}
                         {v.issuedByName && ` · Issued by ${v.issuedByName}`}
                       </p>
                       <Button
@@ -124,7 +124,7 @@ export default function Violations() {
                       <div className="flex items-center gap-2 mb-1">
                         <TypeBadge type={v.type} />
                         <span className="text-xs text-muted-foreground">
-                          {formatDateTime(v.createdAt.toISOString())}
+                          {formatDateTime(v.createdAt)}
                         </span>
                       </div>
                       <p className="text-sm text-muted-foreground">{v.reason}</p>

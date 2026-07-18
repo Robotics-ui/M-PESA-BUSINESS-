@@ -20,6 +20,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  AcknowledgeViolationResponse,
   AuditLog,
   AuthUserEnvelope,
   CardVerifyBody,
@@ -40,6 +41,7 @@ import type {
   ExtendWithdrawalBody,
   HealthStatus,
   InitiateWithdrawalBody,
+  IssueViolationBody,
   ListAllLoanApplicationsParams,
   ListAllVirtualCardsParams,
   ListCustomersParams,
@@ -65,8 +67,14 @@ import type {
   SignupInput,
   SystemSetting,
   SystemSettingInput,
+  UpdateCustomerNameBody,
+  UpdateCustomerNameResponse,
+  UpdateCustomerPhoneBody,
+  UpdateCustomerPhoneResponse,
+  UpdateVirtualCardDetailsBody,
   VerifyWithdrawalOtpBody,
   VerifyWithdrawalOtpResponse,
+  ViolationItem,
   VirtualCard,
   VirtualCardAdmin,
   VirtualCardDecision,
@@ -1875,117 +1883,76 @@ export function useGetCustomerDetail<TData = Awaited<ReturnType<typeof getCustom
 
 
 
-// ─── Update Customer Phone ───────────────────────────────────────────────────
+export const getUpdateCustomerNameUrl = (id: string,) => {
 
-export const getUpdateCustomerPhoneUrl = (id: string) => `/api/admin/customers/${id}/phone`
 
-export const updateCustomerPhone = async (id: string, body: { phone: string }, options?: RequestInit): Promise<{ id: string; phone: string | null; phoneVerified: boolean }> => {
-  return customFetch(getUpdateCustomerPhoneUrl(id), {
+
+
+  return `/api/admin/customers/${id}/name`
+}
+
+/**
+ * @summary Update a customer's first and last name
+ */
+export const updateCustomerName = async (id: string,
+    updateCustomerNameBody: UpdateCustomerNameBody, options?: RequestInit): Promise<UpdateCustomerNameResponse> => {
+
+  return customFetch<UpdateCustomerNameResponse>(getUpdateCustomerNameUrl(id),
+  {
     ...options,
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(body),
-  });
-}
+    body: JSON.stringify(updateCustomerNameBody)
+  }
+);}
 
-export const getUpdateCustomerPhoneMutationOptions = <TError = ErrorType<unknown>, TContext = unknown>(
-  options?: { mutation?: UseMutationOptions<Awaited<ReturnType<typeof updateCustomerPhone>>, TError, { id: string; data: { phone: string } }, TContext>; request?: SecondParameter<typeof customFetch> }
-): UseMutationOptions<Awaited<ReturnType<typeof updateCustomerPhone>>, TError, { id: string; data: { phone: string } }, TContext> => {
-  const mutationKey = ['updateCustomerPhone'];
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
 
-  const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateCustomerPhone>>, { id: string; data: { phone: string } }> = (props) => {
-    const { id, data } = props ?? {};
-    return updateCustomerPhone(id, data, requestOptions);
-  };
 
-  return { mutationFn, ...mutationOptions };
-}
 
-export const useUpdateCustomerPhone = <TError = ErrorType<unknown>, TContext = unknown>(
-  options?: { mutation?: UseMutationOptions<Awaited<ReturnType<typeof updateCustomerPhone>>, TError, { id: string; data: { phone: string } }, TContext>; request?: SecondParameter<typeof customFetch> }
-): UseMutationResult<Awaited<ReturnType<typeof updateCustomerPhone>>, TError, { id: string; data: { phone: string } }, TContext> => {
-  return useMutation(getUpdateCustomerPhoneMutationOptions(options));
-}
+export const getUpdateCustomerNameMutationOptions = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCustomerName>>, TError,{id: string;data: BodyType<UpdateCustomerNameBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateCustomerName>>, TError,{id: string;data: BodyType<UpdateCustomerNameBody>}, TContext> => {
 
-// ─── Update Virtual Card Details ─────────────────────────────────────────────
+const mutationKey = ['updateCustomerName'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
 
-export const getUpdateVirtualCardDetailsUrl = (id: string) => `/api/admin/virtual-cards/${id}/details`
 
-export const updateVirtualCardDetails = async (id: string, body: { cardNumber: string; cardHolderName: string; bank?: string }, options?: RequestInit): Promise<{ id: string; customerId: string; cardNumber: string; cardHolderName: string; bank: string | null; status: 'pending' | 'approved' | 'rejected'; rejectionReason: string | null; adminNote: string | null; approvedBy: string | null; approvedAt: Date | null; createdAt: Date }> => {
-  return customFetch(getUpdateVirtualCardDetailsUrl(id), {
-    ...options,
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(body),
-  });
-}
 
-export const getUpdateVirtualCardDetailsMutationOptions = <TError = ErrorType<unknown>, TContext = unknown>(
-  options?: { mutation?: UseMutationOptions<Awaited<ReturnType<typeof updateVirtualCardDetails>>, TError, { id: string; data: { cardNumber: string; cardHolderName: string; bank?: string } }, TContext>; request?: SecondParameter<typeof customFetch> }
-): UseMutationOptions<Awaited<ReturnType<typeof updateVirtualCardDetails>>, TError, { id: string; data: { cardNumber: string; cardHolderName: string; bank?: string } }, TContext> => {
-  const mutationKey = ['updateVirtualCardDetails'];
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
 
-  const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateVirtualCardDetails>>, { id: string; data: { cardNumber: string; cardHolderName: string; bank?: string } }> = (props) => {
-    const { id, data } = props ?? {};
-    return updateVirtualCardDetails(id, data, requestOptions);
-  };
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateCustomerName>>, {id: string;data: BodyType<UpdateCustomerNameBody>}> = (props) => {
+          const {id,data} = props ?? {};
 
-  return { mutationFn, ...mutationOptions };
-}
+          return  updateCustomerName(id,data,requestOptions)
+        }
 
-export const useUpdateVirtualCardDetails = <TError = ErrorType<unknown>, TContext = unknown>(
-  options?: { mutation?: UseMutationOptions<Awaited<ReturnType<typeof updateVirtualCardDetails>>, TError, { id: string; data: { cardNumber: string; cardHolderName: string; bank?: string } }, TContext>; request?: SecondParameter<typeof customFetch> }
-): UseMutationResult<Awaited<ReturnType<typeof updateVirtualCardDetails>>, TError, { id: string; data: { cardNumber: string; cardHolderName: string; bank?: string } }, TContext> => {
-  return useMutation(getUpdateVirtualCardDetailsMutationOptions(options));
-}
 
-export const getUpdateCustomerNameUrl = (id: string) => `/api/admin/customers/${id}/name`
 
-export const updateCustomerName = async (id: string, body: { firstName: string; lastName: string }, options?: RequestInit): Promise<{ id: string; firstName: string | null; lastName: string | null; email: string | null }> => {
-  return customFetch(getUpdateCustomerNameUrl(id), {
-    ...options,
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(body),
-  });
-}
 
-export const getUpdateCustomerNameMutationOptions = <TError = ErrorType<unknown>, TContext = unknown>(
-  options?: { mutation?: UseMutationOptions<Awaited<ReturnType<typeof updateCustomerName>>, TError, { id: string; data: { firstName: string; lastName: string } }, TContext>; request?: SecondParameter<typeof customFetch> }
-): UseMutationOptions<Awaited<ReturnType<typeof updateCustomerName>>, TError, { id: string; data: { firstName: string; lastName: string } }, TContext> => {
-  const mutationKey = ['updateCustomerName'];
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
 
-  const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateCustomerName>>, { id: string; data: { firstName: string; lastName: string } }> = (props) => {
-    const { id, data } = props ?? {};
-    return updateCustomerName(id, data, requestOptions);
-  };
 
-  return { mutationFn, ...mutationOptions };
-}
+  return  { mutationFn, ...mutationOptions }}
 
-export type UpdateCustomerNameMutationResult = NonNullable<Awaited<ReturnType<typeof updateCustomerName>>>
-export type UpdateCustomerNameMutationError = ErrorType<unknown>
+    export type UpdateCustomerNameMutationResult = NonNullable<Awaited<ReturnType<typeof updateCustomerName>>>
+    export type UpdateCustomerNameMutationBody = BodyType<UpdateCustomerNameBody>
+    export type UpdateCustomerNameMutationError = ErrorType<ErrorEnvelope>
 
-export const useUpdateCustomerName = <TError = ErrorType<unknown>, TContext = unknown>(
-  options?: { mutation?: UseMutationOptions<Awaited<ReturnType<typeof updateCustomerName>>, TError, { id: string; data: { firstName: string; lastName: string } }, TContext>; request?: SecondParameter<typeof customFetch> }
-): UseMutationResult<Awaited<ReturnType<typeof updateCustomerName>>, TError, { id: string; data: { firstName: string; lastName: string } }, TContext> => {
-  return useMutation(getUpdateCustomerNameMutationOptions(options));
-}
+    /**
+ * @summary Update a customer's first and last name
+ */
+export const useUpdateCustomerName = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCustomerName>>, TError,{id: string;data: BodyType<UpdateCustomerNameBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateCustomerName>>,
+        TError,
+        {id: string;data: BodyType<UpdateCustomerNameBody>},
+        TContext
+      > => {
+      return useMutation(getUpdateCustomerNameMutationOptions(options));
+    }
 
 export const getUpdateCustomerStatusUrl = (id: string,) => {
 
@@ -2592,6 +2559,77 @@ export function useListAllVirtualCards<TData = Awaited<ReturnType<typeof listAll
 
 
 
+export const getUpdateVirtualCardDetailsUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin/virtual-cards/${id}/details`
+}
+
+/**
+ * @summary Update card number, holder name, and bank for a virtual card
+ */
+export const updateVirtualCardDetails = async (id: string,
+    updateVirtualCardDetailsBody: UpdateVirtualCardDetailsBody, options?: RequestInit): Promise<VirtualCard> => {
+
+  return customFetch<VirtualCard>(getUpdateVirtualCardDetailsUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(updateVirtualCardDetailsBody)
+  }
+);}
+
+
+
+
+export const getUpdateVirtualCardDetailsMutationOptions = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateVirtualCardDetails>>, TError,{id: string;data: BodyType<UpdateVirtualCardDetailsBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateVirtualCardDetails>>, TError,{id: string;data: BodyType<UpdateVirtualCardDetailsBody>}, TContext> => {
+
+const mutationKey = ['updateVirtualCardDetails'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateVirtualCardDetails>>, {id: string;data: BodyType<UpdateVirtualCardDetailsBody>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateVirtualCardDetails(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateVirtualCardDetailsMutationResult = NonNullable<Awaited<ReturnType<typeof updateVirtualCardDetails>>>
+    export type UpdateVirtualCardDetailsMutationBody = BodyType<UpdateVirtualCardDetailsBody>
+    export type UpdateVirtualCardDetailsMutationError = ErrorType<ErrorEnvelope>
+
+    /**
+ * @summary Update card number, holder name, and bank for a virtual card
+ */
+export const useUpdateVirtualCardDetails = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateVirtualCardDetails>>, TError,{id: string;data: BodyType<UpdateVirtualCardDetailsBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateVirtualCardDetails>>,
+        TError,
+        {id: string;data: BodyType<UpdateVirtualCardDetailsBody>},
+        TContext
+      > => {
+      return useMutation(getUpdateVirtualCardDetailsMutationOptions(options));
+    }
+
 export const getDecideVirtualCardUrl = (id: string,) => {
 
 
@@ -2661,6 +2699,77 @@ export const useDecideVirtualCard = <TError = ErrorType<ErrorEnvelope>,
         TContext
       > => {
       return useMutation(getDecideVirtualCardMutationOptions(options));
+    }
+
+export const getUpdateCustomerPhoneUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin/customers/${id}/phone`
+}
+
+/**
+ * @summary Update a customer's phone number
+ */
+export const updateCustomerPhone = async (id: string,
+    updateCustomerPhoneBody: UpdateCustomerPhoneBody, options?: RequestInit): Promise<UpdateCustomerPhoneResponse> => {
+
+  return customFetch<UpdateCustomerPhoneResponse>(getUpdateCustomerPhoneUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(updateCustomerPhoneBody)
+  }
+);}
+
+
+
+
+export const getUpdateCustomerPhoneMutationOptions = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCustomerPhone>>, TError,{id: string;data: BodyType<UpdateCustomerPhoneBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateCustomerPhone>>, TError,{id: string;data: BodyType<UpdateCustomerPhoneBody>}, TContext> => {
+
+const mutationKey = ['updateCustomerPhone'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateCustomerPhone>>, {id: string;data: BodyType<UpdateCustomerPhoneBody>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateCustomerPhone(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateCustomerPhoneMutationResult = NonNullable<Awaited<ReturnType<typeof updateCustomerPhone>>>
+    export type UpdateCustomerPhoneMutationBody = BodyType<UpdateCustomerPhoneBody>
+    export type UpdateCustomerPhoneMutationError = ErrorType<ErrorEnvelope>
+
+    /**
+ * @summary Update a customer's phone number
+ */
+export const useUpdateCustomerPhone = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCustomerPhone>>, TError,{id: string;data: BodyType<UpdateCustomerPhoneBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateCustomerPhone>>,
+        TError,
+        {id: string;data: BodyType<UpdateCustomerPhoneBody>},
+        TContext
+      > => {
+      return useMutation(getUpdateCustomerPhoneMutationOptions(options));
     }
 
 export const getUpdateCustomerLoanAmountUrl = (id: string,) => {
@@ -3595,6 +3704,301 @@ export const useUnlockWithdrawal = <TError = ErrorType<ErrorEnvelope>,
       return useMutation(getUnlockWithdrawalMutationOptions(options));
     }
 
+export const getListMyViolationsUrl = () => {
+
+
+
+
+  return `/api/violations/mine`
+}
+
+/**
+ * @summary Customer views their own violations and warnings
+ */
+export const listMyViolations = async ( options?: RequestInit): Promise<ViolationItem[]> => {
+
+  return customFetch<ViolationItem[]>(getListMyViolationsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListMyViolationsQueryKey = () => {
+    return [
+    `/api/violations/mine`
+    ] as const;
+    }
+
+
+export const getListMyViolationsQueryOptions = <TData = Awaited<ReturnType<typeof listMyViolations>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listMyViolations>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListMyViolationsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listMyViolations>>> = ({ signal }) => listMyViolations({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listMyViolations>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListMyViolationsQueryResult = NonNullable<Awaited<ReturnType<typeof listMyViolations>>>
+export type ListMyViolationsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Customer views their own violations and warnings
+ */
+
+export function useListMyViolations<TData = Awaited<ReturnType<typeof listMyViolations>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listMyViolations>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListMyViolationsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getAcknowledgeViolationUrl = (id: string,) => {
+
+
+
+
+  return `/api/violations/${id}/acknowledge`
+}
+
+/**
+ * @summary Customer acknowledges a violation
+ */
+export const acknowledgeViolation = async (id: string, options?: RequestInit): Promise<AcknowledgeViolationResponse> => {
+
+  return customFetch<AcknowledgeViolationResponse>(getAcknowledgeViolationUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getAcknowledgeViolationMutationOptions = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof acknowledgeViolation>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof acknowledgeViolation>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['acknowledgeViolation'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof acknowledgeViolation>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  acknowledgeViolation(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AcknowledgeViolationMutationResult = NonNullable<Awaited<ReturnType<typeof acknowledgeViolation>>>
+
+    export type AcknowledgeViolationMutationError = ErrorType<ErrorEnvelope>
+
+    /**
+ * @summary Customer acknowledges a violation
+ */
+export const useAcknowledgeViolation = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof acknowledgeViolation>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof acknowledgeViolation>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getAcknowledgeViolationMutationOptions(options));
+    }
+
+export const getListCustomerViolationsUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin/customers/${id}/violations`
+}
+
+/**
+ * @summary Staff lists all violations issued to a specific customer
+ */
+export const listCustomerViolations = async (id: string, options?: RequestInit): Promise<ViolationItem[]> => {
+
+  return customFetch<ViolationItem[]>(getListCustomerViolationsUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCustomerViolationsQueryKey = (id: string,) => {
+    return [
+    `/api/admin/customers/${id}/violations`
+    ] as const;
+    }
+
+
+export const getListCustomerViolationsQueryOptions = <TData = Awaited<ReturnType<typeof listCustomerViolations>>, TError = ErrorType<unknown>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCustomerViolations>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCustomerViolationsQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCustomerViolations>>> = ({ signal }) => listCustomerViolations(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCustomerViolations>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCustomerViolationsQueryResult = NonNullable<Awaited<ReturnType<typeof listCustomerViolations>>>
+export type ListCustomerViolationsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Staff lists all violations issued to a specific customer
+ */
+
+export function useListCustomerViolations<TData = Awaited<ReturnType<typeof listCustomerViolations>>, TError = ErrorType<unknown>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCustomerViolations>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCustomerViolationsQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getIssueViolationUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin/customers/${id}/violations`
+}
+
+/**
+ * @summary Staff issues a formal warning or violation notice to a customer
+ */
+export const issueViolation = async (id: string,
+    issueViolationBody: IssueViolationBody, options?: RequestInit): Promise<ViolationItem> => {
+
+  return customFetch<ViolationItem>(getIssueViolationUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(issueViolationBody)
+  }
+);}
+
+
+
+
+export const getIssueViolationMutationOptions = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof issueViolation>>, TError,{id: string;data: BodyType<IssueViolationBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof issueViolation>>, TError,{id: string;data: BodyType<IssueViolationBody>}, TContext> => {
+
+const mutationKey = ['issueViolation'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof issueViolation>>, {id: string;data: BodyType<IssueViolationBody>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  issueViolation(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type IssueViolationMutationResult = NonNullable<Awaited<ReturnType<typeof issueViolation>>>
+    export type IssueViolationMutationBody = BodyType<IssueViolationBody>
+    export type IssueViolationMutationError = ErrorType<ErrorEnvelope>
+
+    /**
+ * @summary Staff issues a formal warning or violation notice to a customer
+ */
+export const useIssueViolation = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof issueViolation>>, TError,{id: string;data: BodyType<IssueViolationBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof issueViolation>>,
+        TError,
+        {id: string;data: BodyType<IssueViolationBody>},
+        TContext
+      > => {
+      return useMutation(getIssueViolationMutationOptions(options));
+    }
+
 export const getListSystemSettingsUrl = () => {
 
 
@@ -3717,134 +4121,6 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
           return  updateSystemSetting(data,requestOptions)
         }
 
-
-
-// ─── Violations ───────────────────────────────────────────────────────────────
-
-export const getListMyViolationsUrl = () => `/api/violations/mine`
-
-export const listMyViolations = async (options?: RequestInit): Promise<ViolationItem[]> => {
-  return customFetch(getListMyViolationsUrl(), { ...options });
-}
-
-export const getListMyViolationsQueryKey = () => ['listMyViolations'] as const;
-
-export const getListMyViolationsQueryOptions = <TData = Awaited<ReturnType<typeof listMyViolations>>, TError = ErrorType<unknown>>(
-  options?: { query?: UseQueryOptions<Awaited<ReturnType<typeof listMyViolations>>, TError, TData>; request?: SecondParameter<typeof customFetch> }
-): UseQueryOptions<Awaited<ReturnType<typeof listMyViolations>>, TError, TData> & { queryKey: QueryKey } => {
-  const { query: queryOptions, request: requestOptions } = options ?? {};
-  const queryKey = queryOptions?.queryKey ?? getListMyViolationsQueryKey();
-  const queryFn: QueryFunction<Awaited<ReturnType<typeof listMyViolations>>> = () => listMyViolations(requestOptions);
-  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<Awaited<ReturnType<typeof listMyViolations>>, TError, TData> & { queryKey: QueryKey };
-}
-
-export type ListMyViolationsQueryResult = NonNullable<Awaited<ReturnType<typeof listMyViolations>>>;
-export type ListMyViolationsQueryError = ErrorType<unknown>;
-
-export const useListMyViolations = <TData = Awaited<ReturnType<typeof listMyViolations>>, TError = ErrorType<unknown>>(
-  options?: { query?: UseQueryOptions<Awaited<ReturnType<typeof listMyViolations>>, TError, TData>; request?: SecondParameter<typeof customFetch> }
-): UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
-  const queryOptions = getListMyViolationsQueryOptions(options);
-  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & { queryKey: QueryKey };
-  query.queryKey = queryOptions.queryKey;
-  return query;
-}
-
-export const getAcknowledgeViolationUrl = (id: string) => `/api/violations/${id}/acknowledge`
-
-export const acknowledgeViolation = async (id: string, options?: RequestInit): Promise<{ id: string; acknowledged: boolean }> => {
-  return customFetch(getAcknowledgeViolationUrl(id), { ...options, method: 'POST' });
-}
-
-export const getAcknowledgeViolationMutationOptions = <TError = ErrorType<unknown>, TContext = unknown>(
-  options?: { mutation?: UseMutationOptions<Awaited<ReturnType<typeof acknowledgeViolation>>, TError, { id: string }, TContext>; request?: SecondParameter<typeof customFetch> }
-): UseMutationOptions<Awaited<ReturnType<typeof acknowledgeViolation>>, TError, { id: string }, TContext> => {
-  const mutationKey = ['acknowledgeViolation'];
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
-  const mutationFn: MutationFunction<Awaited<ReturnType<typeof acknowledgeViolation>>, { id: string }> = ({ id }) => {
-    return acknowledgeViolation(id, requestOptions);
-  };
-  return { mutationFn, ...mutationOptions };
-}
-
-export type AcknowledgeViolationMutationResult = NonNullable<Awaited<ReturnType<typeof acknowledgeViolation>>>;
-export type AcknowledgeViolationMutationError = ErrorType<unknown>;
-
-export const useAcknowledgeViolation = <TError = ErrorType<unknown>, TContext = unknown>(
-  options?: { mutation?: UseMutationOptions<Awaited<ReturnType<typeof acknowledgeViolation>>, TError, { id: string }, TContext>; request?: SecondParameter<typeof customFetch> }
-): UseMutationResult<Awaited<ReturnType<typeof acknowledgeViolation>>, TError, { id: string }, TContext> => {
-  return useMutation(getAcknowledgeViolationMutationOptions(options));
-}
-
-export const getListCustomerViolationsUrl = (id: string) => `/api/admin/customers/${id}/violations`
-
-export const listCustomerViolations = async (id: string, options?: RequestInit): Promise<ViolationItem[]> => {
-  return customFetch(getListCustomerViolationsUrl(id), { ...options });
-}
-
-export const getListCustomerViolationsQueryKey = (id: string) => ['listCustomerViolations', id] as const;
-
-export const getListCustomerViolationsQueryOptions = <TData = Awaited<ReturnType<typeof listCustomerViolations>>, TError = ErrorType<unknown>>(
-  id: string,
-  options?: { query?: UseQueryOptions<Awaited<ReturnType<typeof listCustomerViolations>>, TError, TData>; request?: SecondParameter<typeof customFetch> }
-): UseQueryOptions<Awaited<ReturnType<typeof listCustomerViolations>>, TError, TData> & { queryKey: QueryKey } => {
-  const { query: queryOptions, request: requestOptions } = options ?? {};
-  const queryKey = queryOptions?.queryKey ?? getListCustomerViolationsQueryKey(id);
-  const queryFn: QueryFunction<Awaited<ReturnType<typeof listCustomerViolations>>> = () => listCustomerViolations(id, requestOptions);
-  return { queryKey, queryFn, enabled: !!id, ...queryOptions } as UseQueryOptions<Awaited<ReturnType<typeof listCustomerViolations>>, TError, TData> & { queryKey: QueryKey };
-}
-
-export type ListCustomerViolationsQueryResult = NonNullable<Awaited<ReturnType<typeof listCustomerViolations>>>;
-export type ListCustomerViolationsQueryError = ErrorType<unknown>;
-
-export const useListCustomerViolations = <TData = Awaited<ReturnType<typeof listCustomerViolations>>, TError = ErrorType<unknown>>(
-  id: string,
-  options?: { query?: UseQueryOptions<Awaited<ReturnType<typeof listCustomerViolations>>, TError, TData>; request?: SecondParameter<typeof customFetch> }
-): UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
-  const queryOptions = getListCustomerViolationsQueryOptions(id, options);
-  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & { queryKey: QueryKey };
-  query.queryKey = queryOptions.queryKey;
-  return query;
-}
-
-export const getIssueViolationUrl = (id: string) => `/api/admin/customers/${id}/violations`
-
-export const issueViolation = async (id: string, body: { type: 'warning' | 'violation'; reason: string }, options?: RequestInit): Promise<ViolationItem> => {
-  return customFetch(getIssueViolationUrl(id), {
-    ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(body),
-  });
-}
-
-export const getIssueViolationMutationOptions = <TError = ErrorType<unknown>, TContext = unknown>(
-  options?: { mutation?: UseMutationOptions<Awaited<ReturnType<typeof issueViolation>>, TError, { id: string; data: { type: 'warning' | 'violation'; reason: string } }, TContext>; request?: SecondParameter<typeof customFetch> }
-): UseMutationOptions<Awaited<ReturnType<typeof issueViolation>>, TError, { id: string; data: { type: 'warning' | 'violation'; reason: string } }, TContext> => {
-  const mutationKey = ['issueViolation'];
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
-  const mutationFn: MutationFunction<Awaited<ReturnType<typeof issueViolation>>, { id: string; data: { type: 'warning' | 'violation'; reason: string } }> = ({ id, data }) => {
-    return issueViolation(id, data, requestOptions);
-  };
-  return { mutationFn, ...mutationOptions };
-}
-
-export type IssueViolationMutationResult = NonNullable<Awaited<ReturnType<typeof issueViolation>>>;
-export type IssueViolationMutationError = ErrorType<unknown>;
-
-export const useIssueViolation = <TError = ErrorType<unknown>, TContext = unknown>(
-  options?: { mutation?: UseMutationOptions<Awaited<ReturnType<typeof issueViolation>>, TError, { id: string; data: { type: 'warning' | 'violation'; reason: string } }, TContext>; request?: SecondParameter<typeof customFetch> }
-): UseMutationResult<Awaited<ReturnType<typeof issueViolation>>, TError, { id: string; data: { type: 'warning' | 'violation'; reason: string } }, TContext> => {
-  return useMutation(getIssueViolationMutationOptions(options));
-}
 
 
 

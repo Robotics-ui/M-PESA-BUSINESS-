@@ -474,6 +474,33 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
+  /admin/customers/{id}/name:
+    patch:
+      tags: [Admin]
+      operationId: updateCustomerName
+      summary: Update a customer's first and last name
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCustomerNameBody'
+      responses:
+        '200':
+          description: Name updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdateCustomerNameResponse'
+        '404':
+          description: Not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
   /admin/customers/{id}/status:
     patch:
       tags: [Admin]
@@ -648,6 +675,33 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/VirtualCardWithCustomer'
+  /admin/virtual-cards/{id}/details:
+    patch:
+      tags: [Admin]
+      operationId: updateVirtualCardDetails
+      summary: Update card number, holder name, and bank for a virtual card
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateVirtualCardDetailsBody'
+      responses:
+        '200':
+          description: Virtual card details updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VirtualCard'
+        '404':
+          description: Not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
   /admin/virtual-cards/{id}/decision:
     patch:
       tags: [Admin]
@@ -668,6 +722,33 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/VirtualCardAdmin'
+        '404':
+          description: Not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /admin/customers/{id}/phone:
+    patch:
+      tags: [Admin]
+      operationId: updateCustomerPhone
+      summary: Update a customer's phone number
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCustomerPhoneBody'
+      responses:
+        '200':
+          description: Phone updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdateCustomerPhoneResponse'
         '404':
           description: Not found.
           content:
@@ -1039,6 +1120,85 @@ paths:
                 $ref: '#/components/schemas/ErrorEnvelope'
         '409':
           description: Withdrawal is not locked.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  # ---------- Violations ----------
+  /violations/mine:
+    get:
+      tags: [Violations]
+      operationId: listMyViolations
+      summary: Customer views their own violations and warnings
+      responses:
+        '200':
+          description: List of violations for the authenticated customer.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ViolationItem'
+
+  /violations/{id}/acknowledge:
+    post:
+      tags: [Violations]
+      operationId: acknowledgeViolation
+      summary: Customer acknowledges a violation
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '200':
+          description: Violation acknowledged.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcknowledgeViolationResponse'
+        '404':
+          description: Not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /admin/customers/{id}/violations:
+    get:
+      tags: [Violations]
+      operationId: listCustomerViolations
+      summary: Staff lists all violations issued to a specific customer
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '200':
+          description: List of violations for the specified customer.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ViolationItem'
+    post:
+      tags: [Violations]
+      operationId: issueViolation
+      summary: Staff issues a formal warning or violation notice to a customer
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IssueViolationBody'
+      responses:
+        '201':
+          description: Violation issued.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ViolationItem'
+        '400':
+          description: Invalid input.
           content:
             application/json:
               schema:
@@ -1768,6 +1928,80 @@ components:
         entityId: { type: [string, 'null'] }
         details: { type: [string, 'null'] }
         createdAt: { type: string, format: date-time }
+
+    # ----- Customer name / phone update -----
+    UpdateCustomerNameBody:
+      type: object
+      required: [firstName, lastName]
+      properties:
+        firstName: { type: string, minLength: 1 }
+        lastName: { type: string, minLength: 1 }
+
+    UpdateCustomerNameResponse:
+      type: object
+      required: [id, firstName, lastName, email]
+      properties:
+        id: { type: string }
+        firstName: { type: [string, 'null'] }
+        lastName: { type: [string, 'null'] }
+        email: { type: [string, 'null'] }
+
+    UpdateCustomerPhoneBody:
+      type: object
+      required: [phone]
+      properties:
+        phone: { type: string, minLength: 1 }
+
+    UpdateCustomerPhoneResponse:
+      type: object
+      required: [id, phone, phoneVerified]
+      properties:
+        id: { type: string }
+        phone: { type: [string, 'null'] }
+        phoneVerified: { type: boolean }
+
+    # ----- Virtual card details update -----
+    UpdateVirtualCardDetailsBody:
+      type: object
+      required: [cardNumber, cardHolderName]
+      properties:
+        cardNumber: { type: string, minLength: 1 }
+        cardHolderName: { type: string, minLength: 1 }
+        bank: { type: string }
+
+    # ----- Violations -----
+    ViolationType:
+      type: string
+      enum: [warning, violation]
+
+    ViolationItem:
+      type: object
+      required: [id, customerId, issuedBy, issuedByName, type, reason, acknowledged, createdAt]
+      properties:
+        id: { type: string }
+        customerId: { type: string }
+        issuedBy: { type: string }
+        issuedByName: { type: [string, 'null'] }
+        type:
+          $ref: '#/components/schemas/ViolationType'
+        reason: { type: string }
+        acknowledged: { type: boolean }
+        createdAt: { type: string, format: date-time }
+
+    IssueViolationBody:
+      type: object
+      required: [type, reason]
+      properties:
+        type:
+          $ref: '#/components/schemas/ViolationType'
+        reason: { type: string, minLength: 1 }
+
+    AcknowledgeViolationResponse:
+      type: object
+      required: [id, acknowledged]
+      properties:
+        id: { type: string }
+        acknowledged: { type: boolean }
 
     SystemSetting:
       type: object

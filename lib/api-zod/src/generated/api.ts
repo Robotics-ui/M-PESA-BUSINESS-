@@ -557,25 +557,32 @@ export const GetCustomerDetailResponse = zod.object({
 
 
 /**
- * @summary Suspend or activate a customer account
+ * @summary Update a customer's first and last name
  */
 export const UpdateCustomerNameParams = zod.object({
   "id": zod.coerce.string()
 })
 
+
+
+
+
 export const UpdateCustomerNameBody = zod.object({
   "firstName": zod.string().min(1),
-  "lastName": zod.string().min(1),
+  "lastName": zod.string().min(1)
 })
 
 export const UpdateCustomerNameResponse = zod.object({
   "id": zod.string(),
   "firstName": zod.string().nullable(),
   "lastName": zod.string().nullable(),
-  "email": zod.string().nullable(),
+  "email": zod.string().nullable()
 })
 
 
+/**
+ * @summary Suspend or activate a customer account
+ */
 export const UpdateCustomerStatusParams = zod.object({
   "id": zod.coerce.string()
 })
@@ -782,6 +789,37 @@ export const ListAllVirtualCardsResponse = zod.array(ListAllVirtualCardsResponse
 
 
 /**
+ * @summary Update card number, holder name, and bank for a virtual card
+ */
+export const UpdateVirtualCardDetailsParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+
+
+
+
+export const UpdateVirtualCardDetailsBody = zod.object({
+  "cardNumber": zod.string().min(1),
+  "cardHolderName": zod.string().min(1),
+  "bank": zod.string().optional()
+})
+
+export const UpdateVirtualCardDetailsResponse = zod.object({
+  "id": zod.string(),
+  "customerId": zod.string(),
+  "cardNumber": zod.string(),
+  "cardHolderName": zod.string(),
+  "bank": zod.string().nullable(),
+  "status": zod.enum(['pending', 'approved', 'rejected']),
+  "rejectionReason": zod.string().nullable(),
+  "approvedBy": zod.string().nullable(),
+  "approvedAt": zod.coerce.date().nullable(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
  * @summary Approve, reject, or request a new virtual card
  */
 export const DecideVirtualCardParams = zod.object({
@@ -811,11 +849,14 @@ export const DecideVirtualCardResponse = zod.object({
 
 
 /**
- * @summary Edit a customer's phone number (admin)
+ * @summary Update a customer's phone number
  */
 export const UpdateCustomerPhoneParams = zod.object({
   "id": zod.coerce.string()
 })
+
+
+
 
 export const UpdateCustomerPhoneBody = zod.object({
   "phone": zod.string().min(1)
@@ -825,34 +866,6 @@ export const UpdateCustomerPhoneResponse = zod.object({
   "id": zod.string(),
   "phone": zod.string().nullable(),
   "phoneVerified": zod.boolean()
-})
-
-
-/**
- * @summary Edit virtual card details (admin)
- */
-export const UpdateVirtualCardDetailsParams = zod.object({
-  "id": zod.coerce.string()
-})
-
-export const UpdateVirtualCardDetailsBody = zod.object({
-  "cardNumber": zod.string().min(1),
-  "cardHolderName": zod.string().min(1),
-  "bank": zod.string().optional()
-})
-
-export const UpdateVirtualCardDetailsResponse = zod.object({
-  "id": zod.string(),
-  "customerId": zod.string(),
-  "cardNumber": zod.string(),
-  "cardHolderName": zod.string(),
-  "bank": zod.string().nullable(),
-  "status": zod.enum(['pending', 'approved', 'rejected']),
-  "rejectionReason": zod.string().nullable(),
-  "adminNote": zod.string().nullable(),
-  "approvedBy": zod.string().nullable(),
-  "approvedAt": zod.coerce.date().nullable(),
-  "createdAt": zod.coerce.date()
 })
 
 
@@ -1290,6 +1303,82 @@ export const UnlockWithdrawalResponse = zod.object({
 
 
 /**
+ * @summary Customer views their own violations and warnings
+ */
+export const ListMyViolationsResponseItem = zod.object({
+  "id": zod.string(),
+  "customerId": zod.string(),
+  "issuedBy": zod.string(),
+  "issuedByName": zod.string().nullable(),
+  "type": zod.enum(['warning', 'violation']),
+  "reason": zod.string(),
+  "acknowledged": zod.boolean(),
+  "createdAt": zod.coerce.date()
+})
+export const ListMyViolationsResponse = zod.array(ListMyViolationsResponseItem)
+
+
+/**
+ * @summary Customer acknowledges a violation
+ */
+export const AcknowledgeViolationParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const AcknowledgeViolationResponse = zod.object({
+  "id": zod.string(),
+  "acknowledged": zod.boolean()
+})
+
+
+/**
+ * @summary Staff lists all violations issued to a specific customer
+ */
+export const ListCustomerViolationsParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const ListCustomerViolationsResponseItem = zod.object({
+  "id": zod.string(),
+  "customerId": zod.string(),
+  "issuedBy": zod.string(),
+  "issuedByName": zod.string().nullable(),
+  "type": zod.enum(['warning', 'violation']),
+  "reason": zod.string(),
+  "acknowledged": zod.boolean(),
+  "createdAt": zod.coerce.date()
+})
+export const ListCustomerViolationsResponse = zod.array(ListCustomerViolationsResponseItem)
+
+
+/**
+ * @summary Staff issues a formal warning or violation notice to a customer
+ */
+export const IssueViolationParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+
+
+
+export const IssueViolationBody = zod.object({
+  "type": zod.enum(['warning', 'violation']),
+  "reason": zod.string().min(1)
+})
+
+export const IssueViolationResponse = zod.object({
+  "id": zod.string(),
+  "customerId": zod.string(),
+  "issuedBy": zod.string(),
+  "issuedByName": zod.string().nullable(),
+  "type": zod.enum(['warning', 'violation']),
+  "reason": zod.string(),
+  "acknowledged": zod.boolean(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
  * @summary List system settings
  */
 export const ListSystemSettingsResponseItem = zod.object({
@@ -1315,59 +1404,6 @@ export const UpdateSystemSettingResponse = zod.object({
   "key": zod.string(),
   "value": zod.string(),
   "updatedAt": zod.coerce.date()
-})
-
-
-// ─── Violations ───────────────────────────────────────────────────────────────
-
-/**
- * @summary A single violation / warning record
- */
-export const ViolationItem = zod.object({
-  "id": zod.string(),
-  "customerId": zod.string(),
-  "issuedBy": zod.string(),
-  "issuedByName": zod.string().nullable(),
-  "type": zod.enum(["warning", "violation"]),
-  "reason": zod.string(),
-  "acknowledged": zod.boolean(),
-  "createdAt": zod.coerce.date()
-})
-
-/**
- * @summary List my violations (customer)
- */
-export const ListMyViolationsResponse = zod.array(ViolationItem)
-
-/**
- * @summary List violations for a customer (staff only)
- */
-export const ListCustomerViolationsParams = zod.object({
-  "id": zod.coerce.string()
-})
-export const ListCustomerViolationsResponse = zod.array(ViolationItem)
-
-/**
- * @summary Issue a warning or violation (staff only)
- */
-export const IssueViolationParams = zod.object({
-  "id": zod.coerce.string()
-})
-export const IssueViolationBody = zod.object({
-  "type": zod.enum(["warning", "violation"]),
-  "reason": zod.string().min(1)
-})
-export const IssueViolationResponse = ViolationItem
-
-/**
- * @summary Acknowledge a violation (customer)
- */
-export const AcknowledgeViolationParams = zod.object({
-  "id": zod.coerce.string()
-})
-export const AcknowledgeViolationResponse = zod.object({
-  "id": zod.string(),
-  "acknowledged": zod.boolean()
 })
 
 

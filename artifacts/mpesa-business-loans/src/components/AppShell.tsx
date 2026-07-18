@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@workspace/replit-auth-web";
-import { useListMyNotifications, useListMyViolations } from "@workspace/api-client-react";
+import { useListMyNotifications, useListMyViolations, getListMyViolationsQueryKey } from "@workspace/api-client-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -61,7 +61,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const unreadCount = notifications?.filter((n) => !n.read).length ?? 0;
 
   // Unacknowledged violation count — shown on the Warnings nav item (customers only)
-  const { data: violations } = useListMyViolations({ query: { enabled: !isStaff } });
+  const { data: violations } = useListMyViolations({ query: { enabled: !isStaff, queryKey: getListMyViolationsQueryKey() } });
   const unacknowledgedViolations = violations?.filter((v) => !v.acknowledged).length ?? 0;
 
   return (

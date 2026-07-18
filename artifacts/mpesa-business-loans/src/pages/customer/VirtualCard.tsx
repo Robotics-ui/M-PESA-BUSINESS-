@@ -22,7 +22,7 @@ function CardStatusBadge({ status }: { status: string }) {
   return <Badge className="bg-yellow-100 text-yellow-700 border-yellow-200">Pending review</Badge>;
 }
 
-function CardItem({ card }: { card: { id: string; cardNumber: string; cardHolderName: string; bank?: string | null; status: string; rejectionReason?: string | null; createdAt: Date } }) {
+function CardItem({ card }: { card: { id: string; cardNumber: string; cardHolderName: string; bank?: string | null; status: string; rejectionReason?: string | null; createdAt: string } }) {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between pb-2">
