@@ -6,6 +6,8 @@ import {
   useListMyLoans,
   useListMyNotifications,
   useListMyVirtualCards,
+  useGetMyGuarantor,
+  getGetMyGuarantorQueryKey,
 } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,7 +16,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency, formatDate } from "@/lib/format";
-import { ArrowRight, Bell, CheckCircle2, Clock, CreditCard, FileText, UserCircle, Wallet, XCircle } from "lucide-react";
+import { ArrowRight, Bell, Building2, CheckCircle2, Clock, CreditCard, FileText, UserCircle, Wallet, XCircle } from "lucide-react";
 
 function LoanAmountCard({ profile }: { profile: { approvedLoanAmount: string; loanStatus: string } | null | undefined }) {
   const amount = Number(profile?.approvedLoanAmount ?? "0");
@@ -110,6 +112,7 @@ export default function Dashboard() {
   const { data: loans, isLoading: loansLoading } = useListMyLoans();
   const { data: notifications } = useListMyNotifications();
   const { data: cards } = useListMyVirtualCards();
+  const { data: guarantor } = useGetMyGuarantor({ query: { retry: false, queryKey: getGetMyGuarantorQueryKey() } });
 
   const completeness = profile
     ? [
@@ -340,6 +343,45 @@ export default function Dashboard() {
           )}
         </CardContent>
       </Card>
+
+      {/* Company guarantor (if assigned by admin) */}
+      {guarantor && (
+        <Card className="border-blue-200 bg-blue-50/40">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+              <Building2 className="h-4 w-4 text-blue-500" /> Company guarantor
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="grid grid-cols-2 gap-y-2 text-sm">
+            <span className="text-muted-foreground">Company</span>
+            <span className="font-semibold text-foreground">{guarantor.companyName}</span>
+            {guarantor.companyRegistration && (
+              <>
+                <span className="text-muted-foreground">Registration</span>
+                <span className="text-foreground">{guarantor.companyRegistration}</span>
+              </>
+            )}
+            {guarantor.contactPerson && (
+              <>
+                <span className="text-muted-foreground">Contact person</span>
+                <span className="text-foreground">{guarantor.contactPerson}</span>
+              </>
+            )}
+            {guarantor.phone && (
+              <>
+                <span className="text-muted-foreground">Phone</span>
+                <span className="font-mono text-foreground">{guarantor.phone}</span>
+              </>
+            )}
+            {guarantor.address && (
+              <>
+                <span className="text-muted-foreground">Address</span>
+                <span className="text-foreground">{guarantor.address}</span>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Notifications */}
       <Card>

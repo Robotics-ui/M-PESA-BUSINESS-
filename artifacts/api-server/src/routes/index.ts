@@ -9,6 +9,7 @@ import adminRouter from "./admin";
 import virtualCardsRouter from "./virtualCards";
 import withdrawalsRouter from "./withdrawals";
 import violationsRouter from "./violations";
+import guarantorsRouter from "./guarantors";
 
 const router: IRouter = Router();
 
@@ -22,5 +23,6 @@ router.use(adminRouter);
 router.use(virtualCardsRouter);
 router.use(withdrawalsRouter);
 router.use(violationsRouter);
+router.use(guarantorsRouter);
 
 export default router;

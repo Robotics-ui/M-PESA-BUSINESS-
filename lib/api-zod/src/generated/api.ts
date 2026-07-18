@@ -1303,6 +1303,88 @@ export const UnlockWithdrawalResponse = zod.object({
 
 
 /**
+ * @summary Customer fetches their own company guarantor
+ */
+export const GetMyGuarantorResponse = zod.object({
+  "id": zod.string(),
+  "customerId": zod.string(),
+  "companyName": zod.string(),
+  "companyRegistration": zod.string().nullish(),
+  "contactPerson": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "address": zod.string().nullish(),
+  "addedBy": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Staff fetches the company guarantor for a customer
+ */
+export const GetCustomerGuarantorParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const GetCustomerGuarantorResponse = zod.object({
+  "id": zod.string(),
+  "customerId": zod.string(),
+  "companyName": zod.string(),
+  "companyRegistration": zod.string().nullish(),
+  "contactPerson": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "address": zod.string().nullish(),
+  "addedBy": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Staff creates or updates the company guarantor for a customer
+ */
+export const UpsertGuarantorParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+
+
+
+export const UpsertGuarantorBody = zod.object({
+  "companyName": zod.string().min(1),
+  "companyRegistration": zod.string().optional(),
+  "contactPerson": zod.string().optional(),
+  "phone": zod.string().optional(),
+  "address": zod.string().optional()
+})
+
+export const UpsertGuarantorResponse = zod.object({
+  "id": zod.string(),
+  "customerId": zod.string(),
+  "companyName": zod.string(),
+  "companyRegistration": zod.string().nullish(),
+  "contactPerson": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "address": zod.string().nullish(),
+  "addedBy": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Staff removes the company guarantor from a customer
+ */
+export const DeleteGuarantorParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const DeleteGuarantorResponse = zod.object({
+  "success": zod.boolean()
+})
+
+
+/**
  * @summary Customer views their own violations and warnings
  */
 export const ListMyViolationsResponseItem = zod.object({

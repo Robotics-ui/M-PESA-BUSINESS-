@@ -28,6 +28,8 @@ tags:
     description: Customer virtual card submission and admin review.
   - name: Withdrawals
     description: Loan withdrawal initiation, card verification, and disbursement.
+  - name: Guarantors
+    description: Company guarantor records linked to customer accounts.
 paths:
   /healthz:
     get:
@@ -1125,6 +1127,100 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
 
+  # ---------- Guarantors ----------
+  /my/guarantor:
+    get:
+      tags: [Guarantors]
+      operationId: getMyGuarantor
+      summary: Customer fetches their own company guarantor
+      responses:
+        '200':
+          description: Guarantor record.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Guarantor'
+        '404':
+          description: No guarantor assigned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /admin/customers/{id}/guarantor:
+    get:
+      tags: [Guarantors]
+      operationId: getCustomerGuarantor
+      summary: Staff fetches the company guarantor for a customer
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '200':
+          description: Guarantor record.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Guarantor'
+        '404':
+          description: No guarantor assigned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+    put:
+      tags: [Guarantors]
+      operationId: upsertGuarantor
+      summary: Staff creates or updates the company guarantor for a customer
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpsertGuarantorBody'
+      responses:
+        '200':
+          description: Guarantor saved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Guarantor'
+        '400':
+          description: Invalid input.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Customer not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+    delete:
+      tags: [Guarantors]
+      operationId: deleteGuarantor
+      summary: Staff removes the company guarantor from a customer
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '200':
+          description: Guarantor removed.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success]
+                properties:
+                  success: { type: boolean }
+        '404':
+          description: Not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
   # ---------- Violations ----------
   /violations/mine:
     get:
@@ -2002,6 +2098,32 @@ components:
       properties:
         id: { type: string }
         acknowledged: { type: boolean }
+
+    # ----- Guarantors -----
+    Guarantor:
+      type: object
+      required: [id, customerId, companyName, addedBy, createdAt, updatedAt]
+      properties:
+        id: { type: string }
+        customerId: { type: string }
+        companyName: { type: string }
+        companyRegistration: { type: [string, 'null'] }
+        contactPerson: { type: [string, 'null'] }
+        phone: { type: [string, 'null'] }
+        address: { type: [string, 'null'] }
+        addedBy: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    UpsertGuarantorBody:
+      type: object
+      required: [companyName]
+      properties:
+        companyName: { type: string, minLength: 1 }
+        companyRegistration: { type: string }
+        contactPerson: { type: string }
+        phone: { type: string }
+        address: { type: string }
 
     SystemSetting:
       type: object

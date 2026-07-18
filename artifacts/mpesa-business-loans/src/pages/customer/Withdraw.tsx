@@ -605,9 +605,12 @@ export default function Withdraw() {
             <Button
               className="w-full"
               onClick={() => {
-                // Withdrawal was reset to pending_verification — restart the flow
+                // Go to phone step so user re-confirms their M-Pesa number
+                // before OTP is sent (full re-verification required on retry)
                 queryClient.invalidateQueries({ queryKey: getListMyWithdrawalsQueryKey() });
-                setStep("loading");
+                setPhoneInput(activeWithdrawal?.mpesaPhone ?? profile?.phone ?? "");
+                setWithdrawalId(null);
+                setStep("phone");
               }}
             >
               <RefreshCw className="h-4 w-4 mr-2" /> Retry withdrawal

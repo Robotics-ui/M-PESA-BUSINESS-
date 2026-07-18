@@ -35,10 +35,12 @@ import type {
   CustomerStatusUpdate,
   CustomerSummary,
   DashboardStats,
+  DeleteGuarantor200,
   Document,
   DocumentInput,
   ErrorEnvelope,
   ExtendWithdrawalBody,
+  Guarantor,
   HealthStatus,
   InitiateWithdrawalBody,
   IssueViolationBody,
@@ -72,6 +74,7 @@ import type {
   UpdateCustomerPhoneBody,
   UpdateCustomerPhoneResponse,
   UpdateVirtualCardDetailsBody,
+  UpsertGuarantorBody,
   VerifyWithdrawalOtpBody,
   VerifyWithdrawalOtpResponse,
   ViolationItem,
@@ -3702,6 +3705,301 @@ export const useUnlockWithdrawal = <TError = ErrorType<ErrorEnvelope>,
         TContext
       > => {
       return useMutation(getUnlockWithdrawalMutationOptions(options));
+    }
+
+export const getGetMyGuarantorUrl = () => {
+
+
+
+
+  return `/api/my/guarantor`
+}
+
+/**
+ * @summary Customer fetches their own company guarantor
+ */
+export const getMyGuarantor = async ( options?: RequestInit): Promise<Guarantor> => {
+
+  return customFetch<Guarantor>(getGetMyGuarantorUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetMyGuarantorQueryKey = () => {
+    return [
+    `/api/my/guarantor`
+    ] as const;
+    }
+
+
+export const getGetMyGuarantorQueryOptions = <TData = Awaited<ReturnType<typeof getMyGuarantor>>, TError = ErrorType<ErrorEnvelope>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMyGuarantor>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetMyGuarantorQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMyGuarantor>>> = ({ signal }) => getMyGuarantor({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getMyGuarantor>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetMyGuarantorQueryResult = NonNullable<Awaited<ReturnType<typeof getMyGuarantor>>>
+export type GetMyGuarantorQueryError = ErrorType<ErrorEnvelope>
+
+
+/**
+ * @summary Customer fetches their own company guarantor
+ */
+
+export function useGetMyGuarantor<TData = Awaited<ReturnType<typeof getMyGuarantor>>, TError = ErrorType<ErrorEnvelope>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMyGuarantor>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetMyGuarantorQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetCustomerGuarantorUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin/customers/${id}/guarantor`
+}
+
+/**
+ * @summary Staff fetches the company guarantor for a customer
+ */
+export const getCustomerGuarantor = async (id: string, options?: RequestInit): Promise<Guarantor> => {
+
+  return customFetch<Guarantor>(getGetCustomerGuarantorUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCustomerGuarantorQueryKey = (id: string,) => {
+    return [
+    `/api/admin/customers/${id}/guarantor`
+    ] as const;
+    }
+
+
+export const getGetCustomerGuarantorQueryOptions = <TData = Awaited<ReturnType<typeof getCustomerGuarantor>>, TError = ErrorType<ErrorEnvelope>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCustomerGuarantor>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCustomerGuarantorQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCustomerGuarantor>>> = ({ signal }) => getCustomerGuarantor(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCustomerGuarantor>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCustomerGuarantorQueryResult = NonNullable<Awaited<ReturnType<typeof getCustomerGuarantor>>>
+export type GetCustomerGuarantorQueryError = ErrorType<ErrorEnvelope>
+
+
+/**
+ * @summary Staff fetches the company guarantor for a customer
+ */
+
+export function useGetCustomerGuarantor<TData = Awaited<ReturnType<typeof getCustomerGuarantor>>, TError = ErrorType<ErrorEnvelope>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCustomerGuarantor>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCustomerGuarantorQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpsertGuarantorUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin/customers/${id}/guarantor`
+}
+
+/**
+ * @summary Staff creates or updates the company guarantor for a customer
+ */
+export const upsertGuarantor = async (id: string,
+    upsertGuarantorBody: UpsertGuarantorBody, options?: RequestInit): Promise<Guarantor> => {
+
+  return customFetch<Guarantor>(getUpsertGuarantorUrl(id),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(upsertGuarantorBody)
+  }
+);}
+
+
+
+
+export const getUpsertGuarantorMutationOptions = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof upsertGuarantor>>, TError,{id: string;data: BodyType<UpsertGuarantorBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof upsertGuarantor>>, TError,{id: string;data: BodyType<UpsertGuarantorBody>}, TContext> => {
+
+const mutationKey = ['upsertGuarantor'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof upsertGuarantor>>, {id: string;data: BodyType<UpsertGuarantorBody>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  upsertGuarantor(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpsertGuarantorMutationResult = NonNullable<Awaited<ReturnType<typeof upsertGuarantor>>>
+    export type UpsertGuarantorMutationBody = BodyType<UpsertGuarantorBody>
+    export type UpsertGuarantorMutationError = ErrorType<ErrorEnvelope>
+
+    /**
+ * @summary Staff creates or updates the company guarantor for a customer
+ */
+export const useUpsertGuarantor = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof upsertGuarantor>>, TError,{id: string;data: BodyType<UpsertGuarantorBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof upsertGuarantor>>,
+        TError,
+        {id: string;data: BodyType<UpsertGuarantorBody>},
+        TContext
+      > => {
+      return useMutation(getUpsertGuarantorMutationOptions(options));
+    }
+
+export const getDeleteGuarantorUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin/customers/${id}/guarantor`
+}
+
+/**
+ * @summary Staff removes the company guarantor from a customer
+ */
+export const deleteGuarantor = async (id: string, options?: RequestInit): Promise<DeleteGuarantor200> => {
+
+  return customFetch<DeleteGuarantor200>(getDeleteGuarantorUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteGuarantorMutationOptions = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteGuarantor>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteGuarantor>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['deleteGuarantor'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteGuarantor>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteGuarantor(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteGuarantorMutationResult = NonNullable<Awaited<ReturnType<typeof deleteGuarantor>>>
+
+    export type DeleteGuarantorMutationError = ErrorType<ErrorEnvelope>
+
+    /**
+ * @summary Staff removes the company guarantor from a customer
+ */
+export const useDeleteGuarantor = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteGuarantor>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteGuarantor>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getDeleteGuarantorMutationOptions(options));
     }
 
 export const getListMyViolationsUrl = () => {

@@ -675,6 +675,32 @@ export interface AcknowledgeViolationResponse {
   acknowledged: boolean;
 }
 
+export interface Guarantor {
+  id: string;
+  customerId: string;
+  companyName: string;
+  /** @nullable */
+  companyRegistration?: string | null;
+  /** @nullable */
+  contactPerson?: string | null;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  address?: string | null;
+  addedBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UpsertGuarantorBody {
+  /** @minLength 1 */
+  companyName: string;
+  companyRegistration?: string;
+  contactPerson?: string;
+  phone?: string;
+  address?: string;
+}
+
 export interface SystemSetting {
   key: string;
   value: string;
@@ -730,4 +756,8 @@ export const ListAllVirtualCardsStatus = {
   approved: 'approved',
   rejected: 'rejected',
 } as const;
+
+export type DeleteGuarantor200 = {
+  success: boolean;
+};
 

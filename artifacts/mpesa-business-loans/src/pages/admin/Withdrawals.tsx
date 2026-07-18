@@ -7,6 +7,8 @@ import {
   useResolveWithdrawalIssue,
   useExtendWithdrawal,
   useSetWithdrawalRetryPeriod,
+  useIssueViolation,
+  getListCustomerViolationsQueryKey,
 } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,7 +28,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, formatDateTime } from "@/lib/format";
-import { Unlock, MessageSquare, CreditCard, RefreshCw, XCircle, CalendarPlus, CalendarClock, Undo2 } from "lucide-react";
+import { Unlock, MessageSquare, CreditCard, RefreshCw, XCircle, CalendarPlus, CalendarClock, Undo2, AlertTriangle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
 function StatusBadge({ status }: { status: string }) {
@@ -108,6 +110,14 @@ export default function Withdrawals() {
   const [retryPeriodDialog, setRetryPeriodDialog] = useState<RetryPeriodDialogState | null>(null);
   const [retryPeriodDays, setRetryPeriodDays] = useState("30");
 
+  // Violation dialog (issue notice directly from withdrawals page)
+  const [violationDialog, setViolationDialog] = useState<{
+    customerId: string;
+    customerName: string;
+  } | null>(null);
+  const [violationType, setViolationType] = useState<"warning" | "violation">("warning");
+  const [violationReason, setViolationReason] = useState("");
+
   const { data: withdrawals, isLoading } = useListAllWithdrawals();
 
   const { mutate: unlock, isPending: unlocking, variables: unlockVars } = useUnlockWithdrawal({
@@ -148,6 +158,24 @@ export default function Withdrawals() {
       },
       onError: (err: any) => {
         const msg = err?.response?.data?.error ?? "Failed to set retry period.";
+        toast({ title: "Error", description: msg, variant: "destructive" });
+      },
+    },
+  });
+
+  const { mutate: issueViolation, isPending: issuingViolation } = useIssueViolation({
+    mutation: {
+      onSuccess: () => {
+        if (violationDialog) {
+          queryClient.invalidateQueries({ queryKey: getListCustomerViolationsQueryKey(violationDialog.customerId) });
+        }
+        setViolationDialog(null);
+        setViolationReason("");
+        setViolationType("warning");
+        toast({ title: "Notice sent", description: "The customer has been notified." });
+      },
+      onError: (err: any) => {
+        const msg = err?.response?.data?.error ?? "Failed to send notice.";
         toast({ title: "Error", description: msg, variant: "destructive" });
       },
     },
@@ -407,6 +435,22 @@ export default function Withdrawals() {
                               View resolution
                             </Button>
                           )}
+                          {/* Issue violation — available for locked accounts and repeated failures */}
+                          {(w.status === "locked" || hasOpenDispute || (w.verificationAttempts >= 2)) && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="border-orange-200 text-orange-700 hover:bg-orange-50"
+                              onClick={() => {
+                                setViolationDialog({ customerId: w.customerId, customerName: w.customerName || "Customer" });
+                                setViolationType("warning");
+                                setViolationReason("");
+                              }}
+                            >
+                              <AlertTriangle className="h-3.5 w-3.5 mr-1" />
+                              Issue notice
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -575,6 +619,64 @@ export default function Withdrawals() {
               disabled={extending || !extendDays || parseInt(extendDays) < 1}
             >
               {extending ? "Extending…" : "Extend deadline"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Issue violation dialog */}
+      <Dialog open={!!violationDialog} onOpenChange={(open) => { if (!open) setViolationDialog(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Issue warning or notice</DialogTitle>
+            <DialogDescription>
+              {violationDialog && (
+                <>Send a formal notice to <span className="font-medium">{violationDialog.customerName}</span> regarding repeated withdrawal failures.</>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-1">
+            <div className="space-y-2">
+              <Label>Type</Label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setViolationType("warning")}
+                  className={`flex-1 rounded-md border-2 p-3 text-sm font-medium transition-colors ${violationType === "warning" ? "border-orange-400 bg-orange-50 text-orange-800" : "border-border text-muted-foreground hover:border-muted-foreground/40"}`}
+                >
+                  ⚠ Warning
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViolationType("violation")}
+                  className={`flex-1 rounded-md border-2 p-3 text-sm font-medium transition-colors ${violationType === "violation" ? "border-red-400 bg-red-50 text-red-800" : "border-border text-muted-foreground hover:border-muted-foreground/40"}`}
+                >
+                  🚫 Policy violation
+                </button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="wViolationReason">Message to customer <span className="text-destructive">*</span></Label>
+              <Textarea
+                id="wViolationReason"
+                rows={4}
+                placeholder="e.g. Your account has been flagged for multiple failed withdrawal attempts. Further violations may result in account suspension."
+                value={violationReason}
+                onChange={(e) => setViolationReason(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setViolationDialog(null)}>Cancel</Button>
+            <Button
+              disabled={issuingViolation || !violationReason.trim()}
+              variant={violationType === "violation" ? "destructive" : "default"}
+              onClick={() => {
+                if (!violationDialog) return;
+                issueViolation({ id: violationDialog.customerId, data: { type: violationType, reason: violationReason.trim() } });
+              }}
+            >
+              {issuingViolation ? "Sending…" : "Send notice"}
             </Button>
           </DialogFooter>
         </DialogContent>

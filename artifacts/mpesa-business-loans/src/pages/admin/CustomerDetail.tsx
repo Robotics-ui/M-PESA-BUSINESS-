@@ -16,6 +16,10 @@ import {
   useListCustomerViolations,
   getListCustomerViolationsQueryKey,
   useIssueViolation,
+  useGetCustomerGuarantor,
+  getGetCustomerGuarantorQueryKey,
+  useUpsertGuarantor,
+  useDeleteGuarantor,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -47,6 +51,8 @@ import {
   Pencil,
   Phone,
   AlertTriangle,
+  Building2,
+  Trash2,
 } from "lucide-react";
 import { formatDateTime } from "@/lib/format";
 
@@ -87,6 +93,14 @@ export default function CustomerDetail() {
   const [violationModalOpen, setViolationModalOpen] = useState(false);
   const [violationType, setViolationType] = useState<"warning" | "violation">("warning");
   const [violationReason, setViolationReason] = useState("");
+
+  // Guarantor modal state
+  const [guarantorModalOpen, setGuarantorModalOpen] = useState(false);
+  const [guarantorCompanyName, setGuarantorCompanyName] = useState("");
+  const [guarantorRegistration, setGuarantorRegistration] = useState("");
+  const [guarantorContact, setGuarantorContact] = useState("");
+  const [guarantorPhone, setGuarantorPhone] = useState("");
+  const [guarantorAddress, setGuarantorAddress] = useState("");
 
   const { data: customer, isLoading } = useGetCustomerDetail(id, {
     query: { enabled: !!id, queryKey: getGetCustomerDetailQueryKey(id) },
@@ -175,6 +189,40 @@ export default function CustomerDetail() {
   });
 
   const { data: violations } = useListCustomerViolations(id);
+
+  const { data: guarantor, refetch: refetchGuarantor } = useGetCustomerGuarantor(id, {
+    query: { retry: false, queryKey: getGetCustomerGuarantorQueryKey(id) },
+  });
+
+  const { mutate: upsertGuarantor, isPending: savingGuarantor } = useUpsertGuarantor({
+    mutation: {
+      onSuccess: () => {
+        refetchGuarantor();
+        setGuarantorModalOpen(false);
+        toast({ title: "Guarantor saved" });
+      },
+      onError: () => toast({ title: "Failed to save guarantor", variant: "destructive" }),
+    },
+  });
+
+  const { mutate: removeGuarantor, isPending: removingGuarantor } = useDeleteGuarantor({
+    mutation: {
+      onSuccess: () => {
+        refetchGuarantor();
+        toast({ title: "Guarantor removed" });
+      },
+      onError: () => toast({ title: "Failed to remove guarantor", variant: "destructive" }),
+    },
+  });
+
+  const openGuarantorModal = () => {
+    setGuarantorCompanyName(guarantor?.companyName ?? "");
+    setGuarantorRegistration(guarantor?.companyRegistration ?? "");
+    setGuarantorContact(guarantor?.contactPerson ?? "");
+    setGuarantorPhone(guarantor?.phone ?? "");
+    setGuarantorAddress(guarantor?.address ?? "");
+    setGuarantorModalOpen(true);
+  };
 
   const { mutate: issueViolation, isPending: issuingViolation } = useIssueViolation({
     mutation: {
@@ -758,6 +806,66 @@ export default function CustomerDetail() {
         </CardContent>
       </Card>
 
+      {/* Guarantor section */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Building2 className="h-4 w-4 text-blue-500" /> Company guarantor
+          </CardTitle>
+          <Button size="sm" variant="outline" onClick={openGuarantorModal}>
+            <Pencil className="h-3.5 w-3.5 mr-1" /> {guarantor ? "Edit" : "Add guarantor"}
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {!guarantor ? (
+            <p className="text-sm text-muted-foreground">No company guarantor assigned to this customer.</p>
+          ) : (
+            <div className="grid grid-cols-2 gap-y-3 text-sm">
+              <span className="text-muted-foreground">Company name</span>
+              <span className="font-medium text-foreground">{guarantor.companyName}</span>
+              {guarantor.companyRegistration && (
+                <>
+                  <span className="text-muted-foreground">Registration no.</span>
+                  <span className="text-foreground">{guarantor.companyRegistration}</span>
+                </>
+              )}
+              {guarantor.contactPerson && (
+                <>
+                  <span className="text-muted-foreground">Contact person</span>
+                  <span className="text-foreground">{guarantor.contactPerson}</span>
+                </>
+              )}
+              {guarantor.phone && (
+                <>
+                  <span className="text-muted-foreground">Phone</span>
+                  <span className="font-mono text-foreground">{guarantor.phone}</span>
+                </>
+              )}
+              {guarantor.address && (
+                <>
+                  <span className="text-muted-foreground">Address</span>
+                  <span className="text-foreground">{guarantor.address}</span>
+                </>
+              )}
+              <span className="text-muted-foreground">Added</span>
+              <span className="text-foreground flex items-center gap-2">
+                {formatDateTime(guarantor.createdAt)}
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-6 w-6 text-red-500 hover:text-red-700 hover:bg-red-50"
+                  title="Remove guarantor"
+                  disabled={removingGuarantor}
+                  onClick={() => removeGuarantor({ id })}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </span>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Issue violation modal */}
       <Dialog open={violationModalOpen} onOpenChange={(open) => { if (!open) setViolationModalOpen(false); }}>
         <DialogContent>
@@ -805,6 +913,55 @@ export default function CustomerDetail() {
               variant={violationType === "violation" ? "destructive" : "default"}
             >
               {issuingViolation ? "Sending…" : "Send notice"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Guarantor modal */}
+      <Dialog open={guarantorModalOpen} onOpenChange={(open) => { if (!open) setGuarantorModalOpen(false); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{guarantor ? "Edit company guarantor" : "Add company guarantor"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="gCompanyName">Company name <span className="text-destructive">*</span></Label>
+              <Input id="gCompanyName" placeholder="e.g. Acme Ltd" value={guarantorCompanyName} onChange={(e) => setGuarantorCompanyName(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="gReg">Registration number <span className="text-muted-foreground text-xs">(optional)</span></Label>
+              <Input id="gReg" placeholder="e.g. CPR/2024/123456" value={guarantorRegistration} onChange={(e) => setGuarantorRegistration(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="gContact">Contact person <span className="text-muted-foreground text-xs">(optional)</span></Label>
+              <Input id="gContact" placeholder="e.g. Jane Doe" value={guarantorContact} onChange={(e) => setGuarantorContact(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="gPhone">Phone <span className="text-muted-foreground text-xs">(optional)</span></Label>
+              <Input id="gPhone" placeholder="+254..." value={guarantorPhone} onChange={(e) => setGuarantorPhone(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="gAddress">Address <span className="text-muted-foreground text-xs">(optional)</span></Label>
+              <Textarea id="gAddress" rows={2} placeholder="Physical address" value={guarantorAddress} onChange={(e) => setGuarantorAddress(e.target.value)} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setGuarantorModalOpen(false)}>Cancel</Button>
+            <Button
+              disabled={savingGuarantor || !guarantorCompanyName.trim()}
+              onClick={() => upsertGuarantor({
+                id,
+                data: {
+                  companyName: guarantorCompanyName.trim(),
+                  companyRegistration: guarantorRegistration.trim() || undefined,
+                  contactPerson: guarantorContact.trim() || undefined,
+                  phone: guarantorPhone.trim() || undefined,
+                  address: guarantorAddress.trim() || undefined,
+                },
+              })}
+            >
+              {savingGuarantor ? "Saving…" : "Save guarantor"}
             </Button>
           </DialogFooter>
         </DialogContent>
