@@ -109,6 +109,7 @@ export default function Withdraw() {
   const [step, setStep] = useState<Step>("loading");
   const [withdrawalId, setWithdrawalId] = useState<string | null>(null);
   const [phoneInput, setPhoneInput] = useState("");
+  const [amountInput, setAmountInput] = useState("");
   const [otpInput, setOtpInput] = useState("");
   const [otpError, setOtpError] = useState<string | null>(null);
   const [otpSent, setOtpSent] = useState(false);
@@ -222,6 +223,7 @@ export default function Withdraw() {
       setStep("locked");
     } else {
       setPhoneInput((prev) => prev || profile?.phone || "");
+      setAmountInput((prev) => prev || profile?.approvedLoanAmount?.toString() || "");
       setStep("phone");
     }
   }, [profileLoading, withdrawalsLoading, withdrawals, profile]);
@@ -314,7 +316,9 @@ export default function Withdraw() {
   const handlePhoneSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!phoneInput.trim()) return;
-    initiate({ data: { mpesaPhone: phoneInput.trim() } });
+    const parsedAmount = parseFloat(amountInput);
+    if (!parsedAmount || parsedAmount <= 0 || parsedAmount > approvedAmount) return;
+    initiate({ data: { mpesaPhone: phoneInput.trim(), amount: parsedAmount } });
   };
 
   const handleOtpSubmit = (e: React.FormEvent) => {
@@ -799,6 +803,43 @@ export default function Withdraw() {
             </div>
 
             <form onSubmit={handlePhoneSubmit} className="space-y-4">
+              {/* Amount to withdraw */}
+              <div className="space-y-2">
+                <Label htmlFor="withdrawAmount">Amount to withdraw (KES)</Label>
+                <Input
+                  id="withdrawAmount"
+                  type="number"
+                  min={1}
+                  max={approvedAmount}
+                  step={0.01}
+                  value={amountInput}
+                  onChange={(e) => setAmountInput(e.target.value)}
+                  placeholder={approvedAmount.toString()}
+                  required
+                />
+                {(() => {
+                  const val = parseFloat(amountInput);
+                  if (amountInput && val < approvedAmount) {
+                    return (
+                      <p className="text-xs text-amber-600">
+                        Partial withdrawal — remaining{" "}
+                        <span className="font-medium">
+                          {formatCurrency((approvedAmount - val).toFixed(2))}
+                        </span>{" "}
+                        stays in your approved balance.
+                      </p>
+                    );
+                  }
+                  return (
+                    <p className="text-xs text-muted-foreground">
+                      You can withdraw up to {formatCurrency(approvedAmount.toString())}. Enter a
+                      smaller amount for a partial withdrawal.
+                    </p>
+                  );
+                })()}
+              </div>
+
+              {/* M-Pesa number */}
               <div className="space-y-2">
                 <Label htmlFor="mpesaPhone">Safaricom (M-Pesa) number</Label>
                 <Input
@@ -818,7 +859,16 @@ export default function Withdraw() {
               <Button
                 type="submit"
                 className="w-full"
-                disabled={initiating || sendingOtp || profileLoading || approvedAmount <= 0 || !phoneInput.trim()}
+                disabled={
+                  initiating ||
+                  sendingOtp ||
+                  profileLoading ||
+                  approvedAmount <= 0 ||
+                  !phoneInput.trim() ||
+                  !amountInput ||
+                  parseFloat(amountInput) <= 0 ||
+                  parseFloat(amountInput) > approvedAmount
+                }
               >
                 {initiating || sendingOtp ? "Sending code…" : "Send verification code"}
                 {!initiating && !sendingOtp && <ArrowRight className="h-4 w-4 ml-2" />}
@@ -835,7 +885,8 @@ export default function Withdraw() {
               <li>You must have an approved virtual card before you can withdraw. Add one from the Virtual Card page if you haven't already.</li>
               <li>After OTP verification, enter your virtual card number exactly as you registered it to confirm the withdrawal.</li>
               <li>After 3 failed card verification attempts, your withdrawal will be locked and you'll need to contact support to unlock it.</li>
-              <li>Once verified, the full approved amount is disbursed immediately and a 12-month repayment schedule (10% flat interest) is created automatically.</li>
+              <li>Choose how much to withdraw — up to your full approved amount. You can withdraw a smaller partial amount if you prefer.</li>
+              <li>Once verified, the chosen amount is disbursed immediately.</li>
             </ul>
           </CardContent>
         </Card>

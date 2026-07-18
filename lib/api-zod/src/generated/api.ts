@@ -970,7 +970,8 @@ export const initiateWithdrawalBodyMpesaPhoneMin = 9;
 
 
 export const InitiateWithdrawalBody = zod.object({
-  "mpesaPhone": zod.string().min(initiateWithdrawalBodyMpesaPhoneMin).describe('Safaricom (M-Pesa) registered number funds will be sent to.')
+  "mpesaPhone": zod.string().min(initiateWithdrawalBodyMpesaPhoneMin).describe('Safaricom (M-Pesa) registered number funds will be sent to.'),
+  "amount": zod.number().positive().optional().describe('Amount to withdraw. Must be > 0 and ≤ approved loan amount. Defaults to full approved amount.')
 })
 
 export const InitiateWithdrawalResponse = zod.object({

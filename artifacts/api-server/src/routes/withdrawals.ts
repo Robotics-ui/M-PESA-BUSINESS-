@@ -125,6 +125,16 @@ router.post("/withdrawals", async (req: Request, res: Response): Promise<void> =
     return;
   }
 
+  // Resolve the amount the customer wants to withdraw (partial or full)
+  const requestedAmount = parsed.data.amount ?? approvedAmount;
+  if (requestedAmount <= 0 || requestedAmount > approvedAmount) {
+    res.status(400).json({
+      error: `Withdrawal amount must be between KES 1 and KES ${approvedAmount.toLocaleString()}.`,
+    });
+    return;
+  }
+  const withdrawAmount = requestedAmount.toFixed(2);
+
   // 2. Get most-recent approved virtual card
   const [card] = await db
     .select()
@@ -198,17 +208,24 @@ router.post("/withdrawals", async (req: Request, res: Response): Promise<void> =
     }
 
     if (latest.status === "pending_verification") {
-      if (latest.mpesaPhone !== mpesaPhone) {
-        // Phone changed — update it and reset OTP verification for this request
+      const phoneChanged = latest.mpesaPhone !== mpesaPhone;
+      const amountChanged = Number(latest.amount).toFixed(2) !== withdrawAmount;
+      if (phoneChanged || amountChanged) {
+        // Phone or amount changed — update and reset OTP so the customer
+        // re-verifies with the new details.
         const [updated] = await db
           .update(withdrawalRequestsTable)
-          .set({ mpesaPhone, otpVerified: false })
+          .set({
+            ...(phoneChanged ? { mpesaPhone } : {}),
+            ...(amountChanged ? { amount: withdrawAmount } : {}),
+            otpVerified: false,
+          })
           .where(eq(withdrawalRequestsTable.id, latest.id))
           .returning();
         res.status(201).json(InitiateWithdrawalResponse.parse(updated));
         return;
       }
-      // Return the existing in-progress request
+      // Return the existing in-progress request unchanged
       res.status(201).json(InitiateWithdrawalResponse.parse(latest));
       return;
     }
@@ -222,7 +239,7 @@ router.post("/withdrawals", async (req: Request, res: Response): Promise<void> =
     .insert(withdrawalRequestsTable)
     .values({
       customerId: userId,
-      amount: profile.approvedLoanAmount,
+      amount: withdrawAmount,
       mpesaPhone,
       virtualCardId: card.id,
       status: "pending_verification",
@@ -237,7 +254,7 @@ router.post("/withdrawals", async (req: Request, res: Response): Promise<void> =
     action: "withdrawal.initiated",
     entityType: "withdrawal_request",
     entityId: withdrawal.id,
-    details: `amount=${profile.approvedLoanAmount}, phone=${mpesaPhone}`,
+    details: `amount=${withdrawAmount}, phone=${mpesaPhone}`,
   });
 
   res.status(201).json(InitiateWithdrawalResponse.parse(withdrawal));
