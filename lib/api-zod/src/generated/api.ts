@@ -1318,3 +1318,56 @@ export const UpdateSystemSettingResponse = zod.object({
 })
 
 
+// ─── Violations ───────────────────────────────────────────────────────────────
+
+/**
+ * @summary A single violation / warning record
+ */
+export const ViolationItem = zod.object({
+  "id": zod.string(),
+  "customerId": zod.string(),
+  "issuedBy": zod.string(),
+  "issuedByName": zod.string().nullable(),
+  "type": zod.enum(["warning", "violation"]),
+  "reason": zod.string(),
+  "acknowledged": zod.boolean(),
+  "createdAt": zod.coerce.date()
+})
+
+/**
+ * @summary List my violations (customer)
+ */
+export const ListMyViolationsResponse = zod.array(ViolationItem)
+
+/**
+ * @summary List violations for a customer (staff only)
+ */
+export const ListCustomerViolationsParams = zod.object({
+  "id": zod.coerce.string()
+})
+export const ListCustomerViolationsResponse = zod.array(ViolationItem)
+
+/**
+ * @summary Issue a warning or violation (staff only)
+ */
+export const IssueViolationParams = zod.object({
+  "id": zod.coerce.string()
+})
+export const IssueViolationBody = zod.object({
+  "type": zod.enum(["warning", "violation"]),
+  "reason": zod.string().min(1)
+})
+export const IssueViolationResponse = ViolationItem
+
+/**
+ * @summary Acknowledge a violation (customer)
+ */
+export const AcknowledgeViolationParams = zod.object({
+  "id": zod.coerce.string()
+})
+export const AcknowledgeViolationResponse = zod.object({
+  "id": zod.string(),
+  "acknowledged": zod.boolean()
+})
+
+

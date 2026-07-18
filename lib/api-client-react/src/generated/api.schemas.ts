@@ -663,3 +663,17 @@ export const ListAllVirtualCardsStatus = {
   rejected: 'rejected',
 } as const;
 
+
+
+export type ViolationType = 'warning' | 'violation';
+
+export type ViolationItem = {
+  id: string;
+  customerId: string;
+  issuedBy: string;
+  issuedByName: string | null;
+  type: ViolationType;
+  reason: string;
+  acknowledged: boolean;
+  createdAt: Date;
+};

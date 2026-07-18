@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@workspace/replit-auth-web";
-import { useListMyNotifications } from "@workspace/api-client-react";
+import { useListMyNotifications, useListMyViolations } from "@workspace/api-client-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -19,6 +19,7 @@ import {
   Settings,
   LogOut,
   CreditCard,
+  ShieldAlert,
 } from "lucide-react";
 
 interface NavItem {
@@ -32,6 +33,7 @@ const CUSTOMER_NAV: NavItem[] = [
   { href: "/apply", label: "Apply for a loan", icon: FileText },
   { href: "/loans", label: "My loans", icon: Wallet },
   { href: "/virtual-card", label: "Virtual card", icon: CreditCard },
+  { href: "/violations", label: "Warnings", icon: ShieldAlert },
   { href: "/notifications", label: "Notifications", icon: Bell },
   { href: "/profile", label: "Profile", icon: UserCircle },
 ];
@@ -58,6 +60,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { data: notifications } = useListMyNotifications();
   const unreadCount = notifications?.filter((n) => !n.read).length ?? 0;
 
+  // Unacknowledged violation count — shown on the Warnings nav item (customers only)
+  const { data: violations } = useListMyViolations({ query: { enabled: !isStaff } });
+  const unacknowledgedViolations = violations?.filter((v) => !v.acknowledged).length ?? 0;
+
   return (
     <div className="min-h-screen w-full flex bg-background">
       <aside className="hidden md:flex md:w-64 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground shrink-0">
@@ -76,7 +82,12 @@ export function AppShell({ children }: { children: ReactNode }) {
             const active = location === item.href;
             const Icon = item.icon;
             const isNotifLink = item.href === "/notifications" || item.href === "/admin/notifications";
-            const badge = isNotifLink && unreadCount > 0 ? unreadCount : 0;
+            const isViolationLink = item.href === "/violations";
+            const badge = isNotifLink && unreadCount > 0
+              ? unreadCount
+              : isViolationLink && unacknowledgedViolations > 0
+                ? unacknowledgedViolations
+                : 0;
             return (
               <Link key={item.href} href={item.href}>
                 <a
@@ -157,7 +168,12 @@ export function AppShell({ children }: { children: ReactNode }) {
               const active = location === item.href;
               const Icon = item.icon;
               const isNotifLink = item.href === "/notifications" || item.href === "/admin/notifications";
-              const badge = isNotifLink && unreadCount > 0 ? unreadCount : 0;
+              const isViolationLink = item.href === "/violations";
+              const badge = isNotifLink && unreadCount > 0
+                ? unreadCount
+                : isViolationLink && unacknowledgedViolations > 0
+                  ? unacknowledgedViolations
+                  : 0;
               return (
                 <Link key={item.href} href={item.href}>
                   <a

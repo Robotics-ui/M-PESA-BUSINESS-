@@ -6,3 +6,4 @@ export * from "./notifications";
 export * from "./audit";
 export * from "./virtual_cards";
 export * from "./withdrawals";
+export * from "./violations";

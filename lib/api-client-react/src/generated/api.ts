@@ -3719,6 +3719,134 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
+// ─── Violations ───────────────────────────────────────────────────────────────
+
+export const getListMyViolationsUrl = () => `/api/violations/mine`
+
+export const listMyViolations = async (options?: RequestInit): Promise<ViolationItem[]> => {
+  return customFetch(getListMyViolationsUrl(), { ...options });
+}
+
+export const getListMyViolationsQueryKey = () => ['listMyViolations'] as const;
+
+export const getListMyViolationsQueryOptions = <TData = Awaited<ReturnType<typeof listMyViolations>>, TError = ErrorType<unknown>>(
+  options?: { query?: UseQueryOptions<Awaited<ReturnType<typeof listMyViolations>>, TError, TData>; request?: SecondParameter<typeof customFetch> }
+): UseQueryOptions<Awaited<ReturnType<typeof listMyViolations>>, TError, TData> & { queryKey: QueryKey } => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+  const queryKey = queryOptions?.queryKey ?? getListMyViolationsQueryKey();
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listMyViolations>>> = () => listMyViolations(requestOptions);
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<Awaited<ReturnType<typeof listMyViolations>>, TError, TData> & { queryKey: QueryKey };
+}
+
+export type ListMyViolationsQueryResult = NonNullable<Awaited<ReturnType<typeof listMyViolations>>>;
+export type ListMyViolationsQueryError = ErrorType<unknown>;
+
+export const useListMyViolations = <TData = Awaited<ReturnType<typeof listMyViolations>>, TError = ErrorType<unknown>>(
+  options?: { query?: UseQueryOptions<Awaited<ReturnType<typeof listMyViolations>>, TError, TData>; request?: SecondParameter<typeof customFetch> }
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
+  const queryOptions = getListMyViolationsQueryOptions(options);
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  query.queryKey = queryOptions.queryKey;
+  return query;
+}
+
+export const getAcknowledgeViolationUrl = (id: string) => `/api/violations/${id}/acknowledge`
+
+export const acknowledgeViolation = async (id: string, options?: RequestInit): Promise<{ id: string; acknowledged: boolean }> => {
+  return customFetch(getAcknowledgeViolationUrl(id), { ...options, method: 'POST' });
+}
+
+export const getAcknowledgeViolationMutationOptions = <TError = ErrorType<unknown>, TContext = unknown>(
+  options?: { mutation?: UseMutationOptions<Awaited<ReturnType<typeof acknowledgeViolation>>, TError, { id: string }, TContext>; request?: SecondParameter<typeof customFetch> }
+): UseMutationOptions<Awaited<ReturnType<typeof acknowledgeViolation>>, TError, { id: string }, TContext> => {
+  const mutationKey = ['acknowledgeViolation'];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+  const mutationFn: MutationFunction<Awaited<ReturnType<typeof acknowledgeViolation>>, { id: string }> = ({ id }) => {
+    return acknowledgeViolation(id, requestOptions);
+  };
+  return { mutationFn, ...mutationOptions };
+}
+
+export type AcknowledgeViolationMutationResult = NonNullable<Awaited<ReturnType<typeof acknowledgeViolation>>>;
+export type AcknowledgeViolationMutationError = ErrorType<unknown>;
+
+export const useAcknowledgeViolation = <TError = ErrorType<unknown>, TContext = unknown>(
+  options?: { mutation?: UseMutationOptions<Awaited<ReturnType<typeof acknowledgeViolation>>, TError, { id: string }, TContext>; request?: SecondParameter<typeof customFetch> }
+): UseMutationResult<Awaited<ReturnType<typeof acknowledgeViolation>>, TError, { id: string }, TContext> => {
+  return useMutation(getAcknowledgeViolationMutationOptions(options));
+}
+
+export const getListCustomerViolationsUrl = (id: string) => `/api/admin/customers/${id}/violations`
+
+export const listCustomerViolations = async (id: string, options?: RequestInit): Promise<ViolationItem[]> => {
+  return customFetch(getListCustomerViolationsUrl(id), { ...options });
+}
+
+export const getListCustomerViolationsQueryKey = (id: string) => ['listCustomerViolations', id] as const;
+
+export const getListCustomerViolationsQueryOptions = <TData = Awaited<ReturnType<typeof listCustomerViolations>>, TError = ErrorType<unknown>>(
+  id: string,
+  options?: { query?: UseQueryOptions<Awaited<ReturnType<typeof listCustomerViolations>>, TError, TData>; request?: SecondParameter<typeof customFetch> }
+): UseQueryOptions<Awaited<ReturnType<typeof listCustomerViolations>>, TError, TData> & { queryKey: QueryKey } => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+  const queryKey = queryOptions?.queryKey ?? getListCustomerViolationsQueryKey(id);
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listCustomerViolations>>> = () => listCustomerViolations(id, requestOptions);
+  return { queryKey, queryFn, enabled: !!id, ...queryOptions } as UseQueryOptions<Awaited<ReturnType<typeof listCustomerViolations>>, TError, TData> & { queryKey: QueryKey };
+}
+
+export type ListCustomerViolationsQueryResult = NonNullable<Awaited<ReturnType<typeof listCustomerViolations>>>;
+export type ListCustomerViolationsQueryError = ErrorType<unknown>;
+
+export const useListCustomerViolations = <TData = Awaited<ReturnType<typeof listCustomerViolations>>, TError = ErrorType<unknown>>(
+  id: string,
+  options?: { query?: UseQueryOptions<Awaited<ReturnType<typeof listCustomerViolations>>, TError, TData>; request?: SecondParameter<typeof customFetch> }
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
+  const queryOptions = getListCustomerViolationsQueryOptions(id, options);
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  query.queryKey = queryOptions.queryKey;
+  return query;
+}
+
+export const getIssueViolationUrl = (id: string) => `/api/admin/customers/${id}/violations`
+
+export const issueViolation = async (id: string, body: { type: 'warning' | 'violation'; reason: string }, options?: RequestInit): Promise<ViolationItem> => {
+  return customFetch(getIssueViolationUrl(id), {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(body),
+  });
+}
+
+export const getIssueViolationMutationOptions = <TError = ErrorType<unknown>, TContext = unknown>(
+  options?: { mutation?: UseMutationOptions<Awaited<ReturnType<typeof issueViolation>>, TError, { id: string; data: { type: 'warning' | 'violation'; reason: string } }, TContext>; request?: SecondParameter<typeof customFetch> }
+): UseMutationOptions<Awaited<ReturnType<typeof issueViolation>>, TError, { id: string; data: { type: 'warning' | 'violation'; reason: string } }, TContext> => {
+  const mutationKey = ['issueViolation'];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+  const mutationFn: MutationFunction<Awaited<ReturnType<typeof issueViolation>>, { id: string; data: { type: 'warning' | 'violation'; reason: string } }> = ({ id, data }) => {
+    return issueViolation(id, data, requestOptions);
+  };
+  return { mutationFn, ...mutationOptions };
+}
+
+export type IssueViolationMutationResult = NonNullable<Awaited<ReturnType<typeof issueViolation>>>;
+export type IssueViolationMutationError = ErrorType<unknown>;
+
+export const useIssueViolation = <TError = ErrorType<unknown>, TContext = unknown>(
+  options?: { mutation?: UseMutationOptions<Awaited<ReturnType<typeof issueViolation>>, TError, { id: string; data: { type: 'warning' | 'violation'; reason: string } }, TContext>; request?: SecondParameter<typeof customFetch> }
+): UseMutationResult<Awaited<ReturnType<typeof issueViolation>>, TError, { id: string; data: { type: 'warning' | 'violation'; reason: string } }, TContext> => {
+  return useMutation(getIssueViolationMutationOptions(options));
+}
+
+
 
 
 

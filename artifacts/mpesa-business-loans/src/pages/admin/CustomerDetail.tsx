@@ -13,6 +13,9 @@ import {
   useListAllVirtualCards,
   getListAllVirtualCardsQueryKey,
   useDecideVirtualCard,
+  useListCustomerViolations,
+  getListCustomerViolationsQueryKey,
+  useIssueViolation,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -43,7 +46,9 @@ import {
   Play,
   Pencil,
   Phone,
+  AlertTriangle,
 } from "lucide-react";
+import { formatDateTime } from "@/lib/format";
 
 type CardDecisionStatus = "approved" | "rejected" | "request_new";
 
@@ -77,6 +82,11 @@ export default function CustomerDetail() {
   const [editCardNumber, setEditCardNumber] = useState("");
   const [editCardHolder, setEditCardHolder] = useState("");
   const [editCardBank, setEditCardBank] = useState("");
+
+  // Violation modal state
+  const [violationModalOpen, setViolationModalOpen] = useState(false);
+  const [violationType, setViolationType] = useState<"warning" | "violation">("warning");
+  const [violationReason, setViolationReason] = useState("");
 
   const { data: customer, isLoading } = useGetCustomerDetail(id, {
     query: { enabled: !!id, queryKey: getGetCustomerDetailQueryKey(id) },
@@ -161,6 +171,21 @@ export default function CustomerDetail() {
         toast({ title: "Decision saved" });
       },
       onError: () => toast({ title: "Failed to save decision", variant: "destructive" }),
+    },
+  });
+
+  const { data: violations } = useListCustomerViolations(id);
+
+  const { mutate: issueViolation, isPending: issuingViolation } = useIssueViolation({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListCustomerViolationsQueryKey(id) });
+        setViolationModalOpen(false);
+        setViolationReason("");
+        setViolationType("warning");
+        toast({ title: "Notice sent", description: "The customer has been notified." });
+      },
+      onError: () => toast({ title: "Failed to send notice", variant: "destructive" }),
     },
   });
 
@@ -691,6 +716,99 @@ export default function CustomerDetail() {
           )}
         </CardContent>
       </Card>
+
+      {/* Violations section */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-orange-500" /> Warnings &amp; violations
+            {violations && violations.length > 0 && (
+              <span className="text-xs text-muted-foreground font-normal">({violations.length} total)</span>
+            )}
+          </CardTitle>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => { setViolationModalOpen(true); setViolationReason(""); setViolationType("warning"); }}
+          >
+            <AlertTriangle className="h-3.5 w-3.5 mr-1" /> Issue notice
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {!violations || violations.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No warnings or violations on record.</p>
+          ) : (
+            <div className="space-y-2">
+              {violations.map((v) => (
+                <div key={v.id} className={`rounded-md border p-3 text-sm ${v.type === "violation" ? "border-red-200 bg-red-50" : "border-orange-200 bg-orange-50"}`}>
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <span className={`text-xs font-semibold uppercase tracking-wide ${v.type === "violation" ? "text-red-700" : "text-orange-700"}`}>
+                      {v.type === "violation" ? "Policy violation" : "Warning"}
+                    </span>
+                    <span className="text-xs text-muted-foreground">{formatDateTime(v.createdAt.toISOString())}</span>
+                  </div>
+                  <p className="text-foreground">{v.reason}</p>
+                  {v.acknowledged && (
+                    <p className="text-xs text-muted-foreground mt-1">✓ Acknowledged by customer</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Issue violation modal */}
+      <Dialog open={violationModalOpen} onOpenChange={(open) => { if (!open) setViolationModalOpen(false); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Issue warning or notice</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Type</Label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setViolationType("warning")}
+                  className={`flex-1 rounded-md border-2 p-3 text-sm font-medium transition-colors ${violationType === "warning" ? "border-orange-400 bg-orange-50 text-orange-800" : "border-border text-muted-foreground hover:border-muted-foreground/40"}`}
+                >
+                  ⚠ Warning
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViolationType("violation")}
+                  className={`flex-1 rounded-md border-2 p-3 text-sm font-medium transition-colors ${violationType === "violation" ? "border-red-400 bg-red-50 text-red-800" : "border-border text-muted-foreground hover:border-muted-foreground/40"}`}
+                >
+                  🚫 Policy violation
+                </button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="violationReason">
+                Message to customer <span className="text-destructive">*</span>
+              </Label>
+              <Textarea
+                id="violationReason"
+                rows={4}
+                placeholder="Explain the reason for this notice. This message will appear on the customer's Warnings page."
+                value={violationReason}
+                onChange={(e) => setViolationReason(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setViolationModalOpen(false)}>Cancel</Button>
+            <Button
+              onClick={() => issueViolation({ id, data: { type: violationType, reason: violationReason.trim() } })}
+              disabled={issuingViolation || !violationReason.trim()}
+              variant={violationType === "violation" ? "destructive" : "default"}
+            >
+              {issuingViolation ? "Sending…" : "Send notice"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Card decision modal */}
       <Dialog open={!!selectedCard} onOpenChange={(open) => { if (!open) { setSelectedCard(null); setCardReason(""); setCardAdminNote(""); } }}>

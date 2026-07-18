@@ -4,6 +4,7 @@ import {
   useListAllVirtualCards,
   getListAllVirtualCardsQueryKey,
   useDecideVirtualCard,
+  useUpdateVirtualCardDetails,
 } from "@workspace/api-client-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,11 +13,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/format";
-import { CheckCircle2, XCircle, RefreshCw } from "lucide-react";
+import { CheckCircle2, XCircle, RefreshCw, Pencil } from "lucide-react";
 import type { VirtualCardWithCustomer } from "@workspace/api-client-react";
 
 type DecisionStatus = "approved" | "rejected" | "request_new";
@@ -34,16 +36,24 @@ export default function VirtualCards() {
   const { toast } = useToast();
 
   const [statusFilter, setStatusFilter] = useState<string>("pending");
+
+  // Decision modal
   const [selected, setSelected] = useState<VirtualCardWithCustomer | null>(null);
   const [decisionStatus, setDecisionStatus] = useState<DecisionStatus>("approved");
   const [reason, setReason] = useState("");
   const [adminNote, setAdminNote] = useState("");
 
+  // Edit details modal
+  const [editCard, setEditCard] = useState<VirtualCardWithCustomer | null>(null);
+  const [editNumber, setEditNumber] = useState("");
+  const [editHolder, setEditHolder] = useState("");
+  const [editBank, setEditBank] = useState("");
+
   const { data: cards, isLoading } = useListAllVirtualCards(
     statusFilter === "all" ? undefined : { status: statusFilter as any },
   );
 
-  const { mutate: decide, isPending } = useDecideVirtualCard({
+  const { mutate: decide, isPending: deciding } = useDecideVirtualCard({
     mutation: {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getListAllVirtualCardsQueryKey() });
@@ -56,6 +66,17 @@ export default function VirtualCards() {
     },
   });
 
+  const { mutate: updateDetails, isPending: updatingDetails } = useUpdateVirtualCardDetails({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListAllVirtualCardsQueryKey() });
+        toast({ title: "Card details updated" });
+        setEditCard(null);
+      },
+      onError: () => toast({ title: "Failed to update card", variant: "destructive" }),
+    },
+  });
+
   const openDecision = (card: VirtualCardWithCustomer, status: DecisionStatus) => {
     setSelected(card);
     setDecisionStatus(status);
@@ -63,7 +84,14 @@ export default function VirtualCards() {
     setAdminNote("");
   };
 
-  const confirm = () => {
+  const openEdit = (card: VirtualCardWithCustomer) => {
+    setEditCard(card);
+    setEditNumber(card.cardNumber);
+    setEditHolder(card.cardHolderName);
+    setEditBank(card.bank ?? "");
+  };
+
+  const confirmDecision = () => {
     if (!selected) return;
     decide({
       id: selected.id,
@@ -75,12 +103,20 @@ export default function VirtualCards() {
     });
   };
 
+  const confirmEdit = () => {
+    if (!editCard || !editNumber.trim() || !editHolder.trim()) return;
+    updateDetails({
+      id: editCard.id,
+      data: { cardNumber: editNumber.trim(), cardHolderName: editHolder.trim(), bank: editBank.trim() || undefined },
+    });
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-foreground">Virtual cards</h1>
-          <p className="text-muted-foreground mt-1">Review and approve customer withdrawal cards.</p>
+          <p className="text-muted-foreground mt-1">Review, approve, and edit customer withdrawal cards.</p>
         </div>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-40">
@@ -141,8 +177,18 @@ export default function VirtualCards() {
                     </TableCell>
                     <TableCell className="text-muted-foreground text-sm">{formatDate(card.createdAt)}</TableCell>
                     <TableCell className="text-right">
-                      {card.status === "pending" && (
-                        <div className="flex items-center justify-end gap-1">
+                      <div className="flex items-center justify-end gap-1 flex-wrap">
+                        {/* Edit button — available for ALL cards regardless of status */}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => openEdit(card)}
+                        >
+                          <Pencil className="h-3.5 w-3.5 mr-1" /> Edit
+                        </Button>
+
+                        {/* Decision buttons — available for all cards (re-decide any time) */}
+                        {card.status !== "approved" && (
                           <Button
                             size="sm"
                             variant="outline"
@@ -151,6 +197,8 @@ export default function VirtualCards() {
                           >
                             <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Approve
                           </Button>
+                        )}
+                        {card.status !== "rejected" && (
                           <Button
                             size="sm"
                             variant="outline"
@@ -159,15 +207,15 @@ export default function VirtualCards() {
                           >
                             <XCircle className="h-3.5 w-3.5 mr-1" /> Reject
                           </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => openDecision(card, "request_new")}
-                          >
-                            <RefreshCw className="h-3.5 w-3.5 mr-1" /> Request new
-                          </Button>
-                        </div>
-                      )}
+                        )}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => openDecision(card, "request_new")}
+                        >
+                          <RefreshCw className="h-3.5 w-3.5 mr-1" /> Request new
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -177,6 +225,7 @@ export default function VirtualCards() {
         </CardContent>
       </Card>
 
+      {/* Decision modal */}
       <Dialog open={!!selected} onOpenChange={(open) => !open && setSelected(null)}>
         <DialogContent>
           <DialogHeader>
@@ -242,11 +291,70 @@ export default function VirtualCards() {
               Cancel
             </Button>
             <Button
-              onClick={confirm}
-              disabled={isPending}
+              onClick={confirmDecision}
+              disabled={deciding}
               variant={decisionStatus === "approved" ? "default" : "destructive"}
             >
-              {isPending ? "Saving…" : "Confirm"}
+              {deciding ? "Saving…" : "Confirm"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit card details modal */}
+      <Dialog open={!!editCard} onOpenChange={(open) => !open && setEditCard(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit card details</DialogTitle>
+          </DialogHeader>
+
+          {editCard && (
+            <div className="space-y-4">
+              <div className="rounded-md border border-border p-3 text-sm">
+                <p><span className="text-muted-foreground">Customer: </span><span className="font-medium">{editCard.customerName}</span></p>
+                <p><span className="text-muted-foreground">Current status: </span><StatusBadge status={editCard.status} /></p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="editNumber">Card number</Label>
+                <Input
+                  id="editNumber"
+                  value={editNumber}
+                  onChange={(e) => setEditNumber(e.target.value)}
+                  placeholder="e.g. 4111 1111 1111 1111"
+                  maxLength={19}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="editHolder">Card holder name</Label>
+                <Input
+                  id="editHolder"
+                  value={editHolder}
+                  onChange={(e) => setEditHolder(e.target.value)}
+                  placeholder="As it appears on the card"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="editBank">Bank / Provider <span className="text-muted-foreground text-xs">(optional)</span></Label>
+                <Input
+                  id="editBank"
+                  value={editBank}
+                  onChange={(e) => setEditBank(e.target.value)}
+                  placeholder="e.g. Equity, KCB, M-PESA"
+                />
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditCard(null)}>Cancel</Button>
+            <Button
+              onClick={confirmEdit}
+              disabled={updatingDetails || !editNumber.trim() || !editHolder.trim()}
+            >
+              {updatingDetails ? "Saving…" : "Save changes"}
             </Button>
           </DialogFooter>
         </DialogContent>
