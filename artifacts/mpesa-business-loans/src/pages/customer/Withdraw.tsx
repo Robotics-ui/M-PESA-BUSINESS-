@@ -12,6 +12,8 @@ import {
   useListMyNotifications,
   useListMyVirtualCards,
   getListMyWithdrawalsQueryKey,
+  useGetMyGuarantor,
+  getGetMyGuarantorQueryKey,
 } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -41,22 +43,36 @@ import {
   CalendarX,
   CalendarClock,
   Undo2,
+  Building2,
 } from "lucide-react";
 
 // ── Step progress bar ─────────────────────────────────────────────────────────
-const STEPS = [
-  { key: "phone", label: "Enter number", icon: Smartphone },
-  { key: "otp", label: "Verify number", icon: ShieldCheck },
-  { key: "verify", label: "Confirm card", icon: CreditCard },
-  { key: "success", label: "Done", icon: CheckCircle2 },
+// Full step list — guarantor step is only entered when conditions require it
+// (partial withdrawal + different M-Pesa number), but it's included here so
+// the progress bar shows the correct position when it is active.
+const STEPS_WITH_GUARANTOR = [
+  { key: "phone",     label: "Enter number",     icon: Smartphone  },
+  { key: "guarantor", label: "Confirm guarantor", icon: Building2   },
+  { key: "otp",       label: "Verify number",     icon: ShieldCheck },
+  { key: "verify",    label: "Confirm card",      icon: CreditCard  },
+  { key: "success",   label: "Done",              icon: CheckCircle2 },
 ] as const;
 
-function StepProgress({ current }: { current: string }) {
-  const stepIndex = STEPS.findIndex((s) => s.key === current);
+const STEPS_WITHOUT_GUARANTOR = [
+  { key: "phone",   label: "Enter number", icon: Smartphone  },
+  { key: "otp",     label: "Verify number", icon: ShieldCheck },
+  { key: "verify",  label: "Confirm card",  icon: CreditCard  },
+  { key: "success", label: "Done",          icon: CheckCircle2 },
+] as const;
+
+type StepDef = { key: string; label: string; icon: React.ElementType };
+
+function StepProgress({ current, steps }: { current: string; steps: readonly StepDef[] }) {
+  const stepIndex = steps.findIndex((s) => s.key === current);
   if (stepIndex < 0) return null;
   return (
     <div className="flex items-center gap-0 mb-6">
-      {STEPS.map((step, idx) => {
+      {steps.map((step, idx) => {
         const done = idx < stepIndex;
         const active = idx === stepIndex;
         const Icon = step.icon;
@@ -80,7 +96,7 @@ function StepProgress({ current }: { current: string }) {
                 {step.label}
               </span>
             </div>
-            {idx < STEPS.length - 1 && (
+            {idx < steps.length - 1 && (
               <div className={`h-0.5 flex-1 mx-1 mb-4 rounded ${done ? "bg-primary" : "bg-border"}`} />
             )}
           </div>
@@ -90,7 +106,7 @@ function StepProgress({ current }: { current: string }) {
   );
 }
 
-type Step = "loading" | "phone" | "otp" | "verify" | "success" | "locked" | "expired" | "error";
+type Step = "loading" | "phone" | "guarantor" | "otp" | "verify" | "success" | "locked" | "expired" | "error";
 
 // Receipt sub-states (shown inside the "success" view)
 type ReceiptPhase =
@@ -110,6 +126,7 @@ export default function Withdraw() {
   const [withdrawalId, setWithdrawalId] = useState<string | null>(null);
   const [phoneInput, setPhoneInput] = useState("");
   const [amountInput, setAmountInput] = useState("");
+  const [guarantorAcknowledged, setGuarantorAcknowledged] = useState(false);
   const [otpInput, setOtpInput] = useState("");
   const [otpError, setOtpError] = useState<string | null>(null);
   const [otpSent, setOtpSent] = useState(false);
@@ -126,6 +143,9 @@ export default function Withdraw() {
   const { data: withdrawals, isLoading: withdrawalsLoading } = useListMyWithdrawals();
   const { data: notifications } = useListMyNotifications();
   const { data: cards } = useListMyVirtualCards();
+  const { data: guarantor } = useGetMyGuarantor({
+    query: { retry: false, queryKey: getGetMyGuarantorQueryKey() },
+  });
 
   const activeWithdrawal = withdrawals?.find((w) => w.id === withdrawalId);
   const displayPhone = activeWithdrawal?.mpesaPhone ?? phoneInput ?? profile?.phone ?? "—";
@@ -318,6 +338,31 @@ export default function Withdraw() {
     if (!phoneInput.trim()) return;
     const parsedAmount = parseFloat(amountInput);
     if (!parsedAmount || parsedAmount <= 0 || parsedAmount > approvedAmount) return;
+
+    const isPartial = parsedAmount < approvedAmount;
+    const isDifferentPhone = phoneInput.trim() !== (profile?.phone ?? "").trim();
+
+    if (isPartial && isDifferentPhone) {
+      if (!guarantor) {
+        toast({
+          title: "Company guarantor required",
+          description:
+            "Partial withdrawals to a different M-Pesa number require a company guarantor on file. Add one from the sidebar.",
+          variant: "destructive",
+        });
+        return;
+      }
+      setGuarantorAcknowledged(false);
+      setStep("guarantor");
+      return;
+    }
+
+    initiate({ data: { mpesaPhone: phoneInput.trim(), amount: parsedAmount } });
+  };
+
+  const handleGuarantorConfirm = () => {
+    if (!guarantorAcknowledged) return;
+    const parsedAmount = parseFloat(amountInput);
     initiate({ data: { mpesaPhone: phoneInput.trim(), amount: parsedAmount } });
   };
 
@@ -341,6 +386,17 @@ export default function Withdraw() {
   };
 
   const approvedAmount = Number(profile?.approvedLoanAmount ?? "0");
+
+  // Determine whether the guarantor confirmation step is needed:
+  // partial amount + M-Pesa number differs from the registered profile phone.
+  const parsedAmountNum = parseFloat(amountInput) || 0;
+  const isPartialDifferentPhone =
+    parsedAmountNum > 0 &&
+    parsedAmountNum < approvedAmount &&
+    phoneInput.trim() !== (profile?.phone ?? "").trim();
+  const activeSteps = isPartialDifferentPhone || step === "guarantor"
+    ? STEPS_WITH_GUARANTOR
+    : STEPS_WITHOUT_GUARANTOR;
 
   // Helper: returns days remaining until expiresAt (null if not set)
   const expiresAt = activeWithdrawal?.expiresAt
@@ -784,7 +840,7 @@ export default function Withdraw() {
             Add or confirm the Safaricom (M-Pesa) number you want your funds sent to.
           </p>
         </div>
-        <StepProgress current="phone" />
+        <StepProgress current="phone" steps={activeSteps} />
 
         <Card>
           <CardContent className="pt-6 pb-4">
@@ -870,7 +926,11 @@ export default function Withdraw() {
                   parseFloat(amountInput) > approvedAmount
                 }
               >
-                {initiating || sendingOtp ? "Sending code…" : "Send verification code"}
+                {initiating || sendingOtp
+                  ? "Sending code…"
+                  : isPartialDifferentPhone
+                    ? "Next: Confirm guarantor"
+                    : "Send verification code"}
                 {!initiating && !sendingOtp && <ArrowRight className="h-4 w-4 ml-2" />}
               </Button>
             </form>
@@ -894,6 +954,123 @@ export default function Withdraw() {
     );
   }
 
+  // ── Guarantor confirmation step ───────────────────────────────────────────
+  // Shown when the user chooses a partial withdrawal to a different M-Pesa number.
+  if (step === "guarantor") {
+    return (
+      <div className="max-w-md space-y-6">
+        <div>
+          <button
+            onClick={() => { setGuarantorAcknowledged(false); setStep("phone"); }}
+            className="flex items-center text-sm text-muted-foreground hover:text-foreground mb-4"
+          >
+            <ArrowLeft className="h-4 w-4 mr-1" /> Back
+          </button>
+          <h1 className="text-2xl font-semibold text-foreground">Confirm company guarantor</h1>
+          <p className="text-muted-foreground mt-1">
+            You are making a partial withdrawal to a different M-Pesa number. Your company
+            guarantor must authorise this transaction before you can proceed.
+          </p>
+        </div>
+
+        <StepProgress current="guarantor" steps={STEPS_WITH_GUARANTOR} />
+
+        {/* Transaction summary */}
+        <Card>
+          <CardContent className="pt-5 pb-4">
+            <div className="grid grid-cols-2 gap-y-2 text-sm">
+              <span className="text-muted-foreground">Withdrawal amount</span>
+              <span className="font-semibold text-foreground">
+                {formatCurrency(parsedAmountNum.toFixed(2))}
+              </span>
+              <span className="text-muted-foreground">Sending to</span>
+              <span className="font-mono text-foreground">{phoneInput.trim()}</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Guarantor details */}
+        {guarantor ? (
+          <Card className="border-blue-200 bg-blue-50/40">
+            <CardHeader className="pb-2 flex flex-row items-center gap-2 pt-4">
+              <Building2 className="h-5 w-5 text-blue-500 shrink-0" />
+              <CardTitle className="text-base text-blue-900">{guarantor.companyName}</CardTitle>
+            </CardHeader>
+            <CardContent className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-1.5 text-sm pb-4">
+              {guarantor.companyRegistration && (
+                <>
+                  <span className="text-muted-foreground">Reg. no.</span>
+                  <span>{guarantor.companyRegistration}</span>
+                </>
+              )}
+              {guarantor.contactPerson && (
+                <>
+                  <span className="text-muted-foreground">Contact</span>
+                  <span>{guarantor.contactPerson}</span>
+                </>
+              )}
+              {guarantor.phone && (
+                <>
+                  <span className="text-muted-foreground">Phone</span>
+                  <span className="font-mono">{guarantor.phone}</span>
+                </>
+              )}
+              {guarantor.address && (
+                <>
+                  <span className="text-muted-foreground">Address</span>
+                  <span>{guarantor.address}</span>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="flex items-start gap-2 rounded-md bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-800">
+            <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+            <span>
+              No company guarantor found. Please add one from the{" "}
+              <button
+                onClick={() => navigate("/guarantor")}
+                className="underline font-medium"
+              >
+                Company Guarantor
+              </button>{" "}
+              page, then return here.
+            </span>
+          </div>
+        )}
+
+        {/* Acknowledgement checkbox */}
+        {guarantor && (
+          <label className="flex items-start gap-3 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
+              checked={guarantorAcknowledged}
+              onChange={(e) => setGuarantorAcknowledged(e.target.checked)}
+            />
+            <span className="text-sm text-foreground">
+              I confirm that{" "}
+              <span className="font-medium">{guarantor.companyName}</span> is authorised to
+              guarantee this partial withdrawal of{" "}
+              <span className="font-medium">{formatCurrency(parsedAmountNum.toFixed(2))}</span>{" "}
+              to{" "}
+              <span className="font-mono">{phoneInput.trim()}</span>.
+            </span>
+          </label>
+        )}
+
+        <Button
+          className="w-full"
+          disabled={!guarantor || !guarantorAcknowledged || initiating || sendingOtp}
+          onClick={handleGuarantorConfirm}
+        >
+          {initiating || sendingOtp ? "Sending code…" : "Confirm & send verification code"}
+          {!initiating && !sendingOtp && <ArrowRight className="h-4 w-4 ml-2" />}
+        </Button>
+      </div>
+    );
+  }
+
   // ── OTP step ──────────────────────────────────────────────────────────────
   if (step === "otp") {
     return (
@@ -912,7 +1089,7 @@ export default function Withdraw() {
           </p>
         </div>
 
-        <StepProgress current="otp" />
+        <StepProgress current="otp" steps={activeSteps} />
 
         {/* Expiry countdown banner */}
         {daysRemaining !== null && daysRemaining <= 3 && daysRemaining > 0 && (
@@ -1014,7 +1191,7 @@ export default function Withdraw() {
         </p>
       </div>
 
-      <StepProgress current="verify" />
+      <StepProgress current="verify" steps={activeSteps} />
 
       {/* Expiry countdown banner */}
       {daysRemaining !== null && daysRemaining <= 3 && daysRemaining > 0 && (
