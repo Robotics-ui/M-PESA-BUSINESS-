@@ -340,7 +340,10 @@ export default function Withdraw() {
     if (!parsedAmount || parsedAmount <= 0 || parsedAmount > approvedAmount) return;
 
     const isPartial = parsedAmount < approvedAmount;
-    const isDifferentPhone = phoneInput.trim() !== (profile?.phone ?? "").trim();
+    // Only consider the phone "different" when the profile actually has a phone set.
+    // If the admin never recorded a phone, we can't treat every entry as "different".
+    const profilePhone = (profile?.phone ?? "").trim();
+    const isDifferentPhone = profilePhone.length > 0 && phoneInput.trim() !== profilePhone;
 
     if (isPartial && isDifferentPhone) {
       if (!guarantor) {
@@ -390,10 +393,12 @@ export default function Withdraw() {
   // Determine whether the guarantor confirmation step is needed:
   // partial amount + M-Pesa number differs from the registered profile phone.
   const parsedAmountNum = parseFloat(amountInput) || 0;
+  const profilePhoneForCompare = (profile?.phone ?? "").trim();
   const isPartialDifferentPhone =
     parsedAmountNum > 0 &&
     parsedAmountNum < approvedAmount &&
-    phoneInput.trim() !== (profile?.phone ?? "").trim();
+    profilePhoneForCompare.length > 0 &&
+    phoneInput.trim() !== profilePhoneForCompare;
   const activeSteps = isPartialDifferentPhone || step === "guarantor"
     ? STEPS_WITH_GUARANTOR
     : STEPS_WITHOUT_GUARANTOR;
