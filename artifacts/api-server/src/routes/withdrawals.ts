@@ -788,9 +788,20 @@ router.post(
       }
 
       if (newReceiptStatus === "confirmed") {
+        // Fetch the current balance inside the transaction so the subtraction
+        // is consistent even under concurrent updates.
+        const [currentProfile] = await tx
+          .select({ approvedLoanAmount: customerProfilesTable.approvedLoanAmount })
+          .from(customerProfilesTable)
+          .where(eq(customerProfilesTable.userId, withdrawal.customerId));
+
+        const currentBalance = Number(currentProfile?.approvedLoanAmount ?? "0");
+        const withdrawn = Number(row.amount);
+        const newBalance = Math.max(0, currentBalance - withdrawn).toFixed(2);
+
         await tx
           .update(customerProfilesTable)
-          .set({ approvedLoanAmount: "0" })
+          .set({ approvedLoanAmount: newBalance })
           .where(eq(customerProfilesTable.userId, withdrawal.customerId));
       }
 
