@@ -11,6 +11,7 @@ import {
   useConfirmWithdrawalReceipt,
   useListMyNotifications,
   useListMyVirtualCards,
+  useListMyDocuments,
   getListMyWithdrawalsQueryKey,
   useGetMyGuarantor,
   getGetMyGuarantorQueryKey,
@@ -143,6 +144,7 @@ export default function Withdraw() {
   const { data: withdrawals, isLoading: withdrawalsLoading } = useListMyWithdrawals();
   const { data: notifications } = useListMyNotifications();
   const { data: cards } = useListMyVirtualCards();
+  const { data: documents } = useListMyDocuments();
   const { data: guarantor } = useGetMyGuarantor({
     query: { retry: false, queryKey: getGetMyGuarantorQueryKey() },
   });
@@ -333,6 +335,14 @@ export default function Withdraw() {
     },
   });
 
+  const BUSINESS_DOC_TYPES = [
+    "company_registration",
+    "cr12",
+    "cr1",
+    "cr2",
+    "cr8",
+  ] as const;
+
   const handlePhoneSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!phoneInput.trim()) return;
@@ -340,24 +350,61 @@ export default function Withdraw() {
     if (!parsedAmount || parsedAmount <= 0 || parsedAmount > approvedAmount) return;
 
     const isPartial = parsedAmount < approvedAmount;
-    // Only consider the phone "different" when the profile actually has a phone set.
-    // If the admin never recorded a phone, we can't treat every entry as "different".
-    const profilePhone = (profile?.phone ?? "").trim();
-    const isDifferentPhone = profilePhone.length > 0 && phoneInput.trim() !== profilePhone;
+    const isFull = !isPartial;
 
-    if (isPartial && isDifferentPhone) {
-      if (!guarantor) {
+    // Full withdrawal: require 2 approved virtual cards
+    if (isFull) {
+      const approvedCardCount = cards?.filter((c) => c.status === "approved").length ?? 0;
+      if (approvedCardCount < 2) {
         toast({
-          title: "Company guarantor required",
-          description:
-            "Partial withdrawals to a different M-Pesa number require a company guarantor on file. Add one from the sidebar.",
+          title: "Two virtual cards required",
+          description: `Full withdrawals require 2 approved virtual cards. You currently have ${approvedCardCount}. Add another card and wait for approval.`,
           variant: "destructive",
         });
         return;
       }
-      setGuarantorAcknowledged(false);
-      setStep("guarantor");
-      return;
+    }
+
+    // Partial withdrawal: require (profileComplete + all 5 business docs) OR a guarantor
+    if (isPartial) {
+      const hasGuarantor = !!guarantor;
+      const hasAllBusinessDocs =
+        !!profile?.profileComplete &&
+        BUSINESS_DOC_TYPES.every((t) => documents?.some((d) => d.type === t));
+
+      if (!hasGuarantor && !hasAllBusinessDocs) {
+        if (!profile?.profileComplete) {
+          toast({
+            title: "Profile incomplete",
+            description:
+              "Complete your profile before making a partial withdrawal, or add a company guarantor.",
+            variant: "destructive",
+          });
+        } else {
+          const uploadedTypes = new Set(documents?.map((d) => d.type) ?? []);
+          const missing = BUSINESS_DOC_TYPES.filter((t) => !uploadedTypes.has(t));
+          const labels: Record<string, string> = {
+            company_registration: "Company Registration",
+            cr12: "CR12",
+            cr1: "CR1",
+            cr2: "CR2",
+            cr8: "CR8",
+          };
+          toast({
+            title: "Business documents required",
+            description: `Upload missing documents (${missing.map((m) => labels[m]).join(", ")}) or add a company guarantor to make a partial withdrawal.`,
+            variant: "destructive",
+          });
+        }
+        return;
+      }
+
+      // Use guarantor confirmation step when the guarantor path is taken
+      if (hasGuarantor) {
+        setGuarantorAcknowledged(false);
+        setStep("guarantor");
+        return;
+      }
     }
 
     initiate({ data: { mpesaPhone: phoneInput.trim(), amount: parsedAmount } });
@@ -390,16 +437,15 @@ export default function Withdraw() {
 
   const approvedAmount = Number(profile?.approvedLoanAmount ?? "0");
 
-  // Determine whether the guarantor confirmation step is needed:
-  // partial amount + M-Pesa number differs from the registered profile phone.
+  // Show the guarantor confirmation step when the customer has a guarantor
+  // and is making a partial withdrawal (guarantor path is always confirmed via
+  // this step; if they use the business-docs path, it's skipped).
   const parsedAmountNum = parseFloat(amountInput) || 0;
-  const profilePhoneForCompare = (profile?.phone ?? "").trim();
-  const isPartialDifferentPhone =
+  const isPartialWithGuarantor =
     parsedAmountNum > 0 &&
     parsedAmountNum < approvedAmount &&
-    profilePhoneForCompare.length > 0 &&
-    phoneInput.trim() !== profilePhoneForCompare;
-  const activeSteps = isPartialDifferentPhone || step === "guarantor"
+    !!guarantor;
+  const activeSteps = (isPartialWithGuarantor || step === "guarantor")
     ? STEPS_WITH_GUARANTOR
     : STEPS_WITHOUT_GUARANTOR;
 
@@ -933,7 +979,7 @@ export default function Withdraw() {
               >
                 {initiating || sendingOtp
                   ? "Sending code…"
-                  : isPartialDifferentPhone
+                  : isPartialWithGuarantor
                     ? "Next: Confirm guarantor"
                     : "Send verification code"}
                 {!initiating && !sendingOtp && <ArrowRight className="h-4 w-4 ml-2" />}
@@ -944,15 +990,30 @@ export default function Withdraw() {
 
         <Card className="bg-muted/40">
           <CardContent className="pt-4 pb-4">
-            <p className="text-sm font-medium text-foreground mb-2">How withdrawal works</p>
-            <ul className="text-xs text-muted-foreground space-y-1.5 list-disc pl-4">
-              <li>Enter the Safaricom number funds should be sent to, then confirm it with an OTP code sent to your in-app notifications.</li>
-              <li>You must have an approved virtual card before you can withdraw. Add one from the Virtual Card page if you haven't already.</li>
-              <li>After OTP verification, enter your virtual card number exactly as you registered it to confirm the withdrawal.</li>
-              <li>After 3 failed card verification attempts, your withdrawal will be locked and you'll need to contact support to unlock it.</li>
-              <li>Choose how much to withdraw — up to your full approved amount. You can withdraw a smaller partial amount if you prefer.</li>
-              <li>Once verified, the chosen amount is disbursed immediately.</li>
-            </ul>
+            <p className="text-sm font-medium text-foreground mb-2">Requirements by withdrawal type</p>
+            <div className="space-y-3 text-xs text-muted-foreground">
+              <div>
+                <p className="font-semibold text-foreground mb-1">Partial withdrawal</p>
+                <p className="mb-1">You need <span className="font-medium">one</span> of:</p>
+                <ul className="list-disc pl-4 space-y-1">
+                  <li>A registered <span className="font-medium">company guarantor</span> (add one from the Guarantor page), <span className="font-medium">or</span></li>
+                  <li>A completed profile + all 5 business documents: <span className="font-medium">Company Registration Certificate, CR12, CR1, CR2, CR8</span> (upload from your Profile page)</li>
+                </ul>
+              </div>
+              <div>
+                <p className="font-semibold text-foreground mb-1">Full withdrawal</p>
+                <ul className="list-disc pl-4 space-y-1">
+                  <li>At least <span className="font-medium">2 approved virtual cards</span> on file</li>
+                </ul>
+              </div>
+              <div>
+                <p className="font-semibold text-foreground mb-1">All withdrawals</p>
+                <ul className="list-disc pl-4 space-y-1">
+                  <li>Enter the Safaricom number to receive funds, then confirm with an OTP sent to your in-app notifications.</li>
+                  <li>Enter your virtual card number to authorise the transfer. 3 failed attempts will lock the request.</li>
+                </ul>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -973,8 +1034,8 @@ export default function Withdraw() {
           </button>
           <h1 className="text-2xl font-semibold text-foreground">Confirm company guarantor</h1>
           <p className="text-muted-foreground mt-1">
-            You are making a partial withdrawal to a different M-Pesa number. Your company
-            guarantor must authorise this transaction before you can proceed.
+            You are making a partial withdrawal. Your registered company guarantor must
+            acknowledge this transaction before you can proceed.
           </p>
         </div>
 

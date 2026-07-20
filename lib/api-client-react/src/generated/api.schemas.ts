@@ -148,6 +148,11 @@ export const DocumentType = {
   id_back: 'id_back',
   selfie: 'selfie',
   supporting: 'supporting',
+  company_registration: 'company_registration',
+  cr12: 'cr12',
+  cr1: 'cr1',
+  cr2: 'cr2',
+  cr8: 'cr8',
 } as const;
 
 export interface Document {

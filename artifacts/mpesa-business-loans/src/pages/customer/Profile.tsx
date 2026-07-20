@@ -20,7 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { UserCircle, ShieldCheck, Upload, FileImage, Check } from "lucide-react";
+import { UserCircle, ShieldCheck, Upload, FileImage, Check, Building2 } from "lucide-react";
 
 type DocKey = "idFrontUrl" | "idBackUrl" | "selfieUrl";
 
@@ -131,8 +131,8 @@ export default function Profile() {
     }
   }
 
-  async function handleSupportingUpload(file: File) {
-    setUploadingSlot("supporting");
+  async function handleDocumentUpload(type: string, file: File) {
+    setUploadingSlot(type);
     try {
       const { uploadURL, objectPath } = await requestUploadUrl({
         data: { name: file.name, size: file.size, contentType: file.type || "application/octet-stream" },
@@ -143,7 +143,7 @@ export default function Profile() {
         headers: { "Content-Type": file.type || "application/octet-stream" },
       });
       await addDocument({
-        data: { type: DocumentType.supporting, fileName: file.name, fileUrl: objectPath },
+        data: { type: type as typeof DocumentType[keyof typeof DocumentType], fileName: file.name, fileUrl: objectPath },
       });
       queryClient.invalidateQueries({ queryKey: getListMyDocumentsQueryKey() });
       toast({ title: "Document uploaded" });
@@ -164,6 +164,14 @@ export default function Profile() {
   }
 
   const supportingDocs = documents?.filter((d) => d.type === "supporting") ?? [];
+
+  const BUSINESS_DOC_SLOTS = [
+    { type: "company_registration", label: "Company Registration Certificate" },
+    { type: "cr12", label: "Latest CR12" },
+    { type: "cr1",  label: "CR1" },
+    { type: "cr2",  label: "CR2" },
+    { type: "cr8",  label: "CR8" },
+  ] as const;
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -363,13 +371,64 @@ export default function Profile() {
                 className="hidden"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
-                  if (file) handleSupportingUpload(file);
+                  if (file) handleDocumentUpload("supporting", file);
                 }}
               />
               <Upload className="h-4 w-4" />
               {uploadingSlot === "supporting" ? "Uploading..." : "Upload document"}
             </label>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* ── Business documents ─────────────────────────────────────────────── */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Building2 className="h-4 w-4" /> Business documents
+          </CardTitle>
+          <CardDescription>
+            Required for partial loan withdrawals (if you don't have a company guarantor). Upload
+            the Company Registration Certificate plus all CR forms.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {BUSINESS_DOC_SLOTS.map((slot) => {
+            const uploaded = documents?.some((d) => d.type === slot.type);
+            const isUploading = uploadingSlot === slot.type;
+            return (
+              <label
+                key={slot.type}
+                className="flex items-center justify-between gap-3 rounded-md border border-dashed border-border p-3 cursor-pointer hover-elevate"
+                data-testid={`upload-slot-${slot.type}`}
+              >
+                <input
+                  type="file"
+                  accept=".pdf,image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleDocumentUpload(slot.type, file);
+                  }}
+                />
+                <div className="flex items-center gap-3 min-w-0">
+                  {uploaded ? (
+                    <Check className="h-5 w-5 text-primary shrink-0" />
+                  ) : (
+                    <FileImage className="h-5 w-5 text-muted-foreground shrink-0" />
+                  )}
+                  <span className="text-sm text-foreground truncate">{slot.label}</span>
+                </div>
+                <span className="text-xs text-muted-foreground shrink-0">
+                  {isUploading ? "Uploading…" : uploaded ? "Uploaded ✓" : "Tap to upload"}
+                </span>
+              </label>
+            );
+          })}
+          <p className="text-xs text-muted-foreground pt-1">
+            Accepted formats: PDF, JPG, PNG. All 5 documents must be uploaded to qualify for a
+            partial withdrawal without a guarantor.
+          </p>
         </CardContent>
       </Card>
     </div>

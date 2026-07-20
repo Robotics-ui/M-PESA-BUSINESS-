@@ -12,6 +12,8 @@ import {
   notificationsTable,
   usersTable,
   otpCodesTable,
+  documentsTable,
+  guarantorsTable,
 } from "@workspace/db";
 import {
   ListMyWithdrawalsResponse,
@@ -134,9 +136,66 @@ router.post("/withdrawals", async (req: Request, res: Response): Promise<void> =
     return;
   }
   const withdrawAmount = requestedAmount.toFixed(2);
+  const isPartialWithdrawal = requestedAmount < approvedAmount;
+  const isFullWithdrawal = !isPartialWithdrawal;
 
-  // 2. Get most-recent approved virtual card
-  const [card] = await db
+  // 2a. Partial withdrawal gate: require business documents OR a guarantor
+  if (isPartialWithdrawal) {
+    // Check for a registered guarantor first (cheaper path)
+    const [guarantor] = await db
+      .select({ id: guarantorsTable.id })
+      .from(guarantorsTable)
+      .where(eq(guarantorsTable.customerId, userId));
+
+    if (!guarantor) {
+      // No guarantor — check profile completeness and business documents
+      if (!profile.profileComplete) {
+        res.status(409).json({
+          error:
+            "Partial withdrawals require a completed profile plus all business documents, or a registered company guarantor. Please complete your profile first.",
+        });
+        return;
+      }
+
+      const BUSINESS_DOC_TYPES = [
+        "company_registration",
+        "cr12",
+        "cr1",
+        "cr2",
+        "cr8",
+      ] as const;
+
+      const uploadedDocs = await db
+        .select({ type: documentsTable.type })
+        .from(documentsTable)
+        .where(
+          and(
+            eq(documentsTable.customerId, userId),
+            inArray(documentsTable.type, [...BUSINESS_DOC_TYPES]),
+          ),
+        );
+
+      const uploadedTypes = new Set(uploadedDocs.map((d) => d.type));
+      const missing = BUSINESS_DOC_TYPES.filter((t) => !uploadedTypes.has(t));
+
+      if (missing.length > 0) {
+        const labels: Record<string, string> = {
+          company_registration: "Company Registration Certificate",
+          cr12: "CR12",
+          cr1: "CR1",
+          cr2: "CR2",
+          cr8: "CR8",
+        };
+        res.status(409).json({
+          error: `Partial withdrawals require all business documents or a company guarantor. Missing: ${missing.map((m) => labels[m]).join(", ")}.`,
+        });
+        return;
+      }
+    }
+  }
+
+  // 2b. Full withdrawal gate: require at least 2 approved virtual cards
+  const approvedCards = await db
     .select()
     .from(virtualCardsTable)
     .where(
@@ -145,9 +204,16 @@ router.post("/withdrawals", async (req: Request, res: Response): Promise<void> =
         eq(virtualCardsTable.status, "approved"),
       ),
     )
-    .orderBy(desc(virtualCardsTable.createdAt))
-    .limit(1);
+    .orderBy(desc(virtualCardsTable.createdAt));
 
+  if (isFullWithdrawal && approvedCards.length < 2) {
+    res.status(409).json({
+      error: `Full withdrawals require 2 approved virtual cards. You currently have ${approvedCards.length}. Please add another card and wait for approval.`,
+    });
+    return;
+  }
+
+  const card = approvedCards[0];
   if (!card) {
     res.status(409).json({ error: "No approved virtual card found." });
     return;

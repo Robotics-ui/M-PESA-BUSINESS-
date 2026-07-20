@@ -4,7 +4,17 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { usersTable } from "./auth";
 
-export const documentTypes = ["id_front", "id_back", "selfie", "supporting"] as const;
+export const documentTypes = [
+  "id_front",
+  "id_back",
+  "selfie",
+  "supporting",
+  "company_registration",
+  "cr12",
+  "cr1",
+  "cr2",
+  "cr8",
+] as const;
 
 export const documentsTable = pgTable("documents", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
