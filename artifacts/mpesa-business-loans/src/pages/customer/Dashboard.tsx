@@ -1,5 +1,6 @@
 import { Link } from "wouter";
 import { useAuth } from "@workspace/replit-auth-web";
+import { useQuery } from "@tanstack/react-query";
 import {
   useGetMyProfile,
   useListMyLoanApplications,
@@ -17,6 +18,50 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { ArrowRight, Bell, Building2, CheckCircle2, Clock, CreditCard, FileText, UserCircle, Wallet, XCircle } from "lucide-react";
+
+function getYouTubeEmbedUrl(url: string): string | null {
+  const match = url.match(
+    /(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|shorts\/))([a-zA-Z0-9_-]{11})/,
+  );
+  return match ? `https://www.youtube.com/embed/${match[1]}?rel=0` : null;
+}
+
+function DashboardMediaCard({ image, video }: { image?: string; video?: string }) {
+  if (!image && !video) return null;
+  const youtubeEmbed = video ? getYouTubeEmbedUrl(video) : null;
+
+  return (
+    <Card className="overflow-hidden">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+          <CreditCard className="h-4 w-4" /> From M-PESA Business Loans
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4 pt-0">
+        {image && (
+          <div className="rounded-lg overflow-hidden border border-border">
+            <img src={image} alt="Announcement" className="w-full object-cover max-h-48" />
+          </div>
+        )}
+        {video && (
+          <div className="rounded-lg overflow-hidden border border-border bg-black aspect-video">
+            {youtubeEmbed ? (
+              <iframe
+                src={youtubeEmbed}
+                className="w-full h-full"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                title="M-PESA Business Loans video"
+              />
+            ) : (
+              <video src={video} controls className="w-full h-full object-contain" />
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 function LoanAmountCard({ profile }: { profile: { approvedLoanAmount: string; loanStatus: string } | null | undefined }) {
   const amount = Number(profile?.approvedLoanAmount ?? "0");
@@ -113,6 +158,11 @@ export default function Dashboard() {
   const { data: notifications } = useListMyNotifications();
   const { data: cards } = useListMyVirtualCards();
   const { data: guarantor } = useGetMyGuarantor({ query: { retry: false, queryKey: getGetMyGuarantorQueryKey() } });
+  const { data: media } = useQuery<Record<string, string>>({
+    queryKey: ["public-settings"],
+    queryFn: () => fetch("/api/settings/public").then((r) => r.json()),
+    staleTime: 60_000,
+  });
 
   const completeness = profile
     ? [
@@ -343,6 +393,12 @@ export default function Dashboard() {
           )}
         </CardContent>
       </Card>
+
+      {/* Admin-managed media (image + video) */}
+      <DashboardMediaCard
+        image={media?.media_dashboard_image}
+        video={media?.media_dashboard_video}
+      />
 
       {/* Company guarantor (if assigned by admin) */}
       {guarantor && (

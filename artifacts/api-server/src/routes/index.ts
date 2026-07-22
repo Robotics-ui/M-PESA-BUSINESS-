@@ -10,6 +10,7 @@ import virtualCardsRouter from "./virtualCards";
 import withdrawalsRouter from "./withdrawals";
 import violationsRouter from "./violations";
 import guarantorsRouter from "./guarantors";
+import publicSettingsRouter from "./publicSettings";
 
 const router: IRouter = Router();
 
@@ -24,5 +25,6 @@ router.use(virtualCardsRouter);
 router.use(withdrawalsRouter);
 router.use(violationsRouter);
 router.use(guarantorsRouter);
+router.use(publicSettingsRouter);
 
 export default router;

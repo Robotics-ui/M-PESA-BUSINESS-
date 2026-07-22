@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@workspace/replit-auth-web";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -137,6 +138,18 @@ function SignupForm() {
 }
 
 export default function Landing() {
+  const { data: media } = useQuery<Record<string, string>>({
+    queryKey: ["public-settings"],
+    queryFn: () => fetch("/api/settings/public").then((r) => r.json()),
+    staleTime: 60_000,
+  });
+
+  const landingImages = [
+    media?.media_landing_image_1,
+    media?.media_landing_image_2,
+    media?.media_landing_image_3,
+  ].filter(Boolean) as string[];
+
   return (
     <div className="min-h-screen w-full bg-background flex flex-col">
       <header className="h-16 flex items-center px-6 md:px-10 border-b border-border">
@@ -217,6 +230,39 @@ export default function Landing() {
           </Card>
         </div>
       </main>
+
+      {/* Admin-managed image gallery — only shown when images are configured */}
+      {landingImages.length > 0 && (
+        <section className="border-t border-border bg-muted/30">
+          <div className="mx-auto max-w-5xl px-6 md:px-10 py-10">
+            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-5">
+              Our platform in action
+            </p>
+            <div
+              className={`grid gap-4 ${
+                landingImages.length === 1
+                  ? "grid-cols-1 max-w-sm"
+                  : landingImages.length === 2
+                    ? "grid-cols-2"
+                    : "grid-cols-3"
+              }`}
+            >
+              {landingImages.map((src, i) => (
+                <div
+                  key={i}
+                  className="aspect-video rounded-xl overflow-hidden border border-border shadow-sm bg-muted"
+                >
+                  <img
+                    src={src}
+                    alt={`Showcase ${i + 1}`}
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       <footer className="text-center text-xs text-muted-foreground py-6 border-t border-border">
         M-PESA Business Loans — Phase 1 foundation

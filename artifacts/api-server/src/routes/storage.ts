@@ -53,6 +53,38 @@ router.post("/storage/uploads/request-url", async (req: Request, res: Response) 
 });
 
 /**
+ * POST /storage/uploads/request-public-url
+ *
+ * Super-admin only: request a presigned URL for uploading to the PUBLIC bucket.
+ * Used for admin-managed media (landing page images, dashboard assets) that
+ * must be served without authentication.
+ */
+router.post("/storage/uploads/request-public-url", async (req: Request, res: Response) => {
+  if (!req.isAuthenticated()) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  if (req.user!.role !== "super_admin") {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+
+  const parsed = RequestUploadUrlBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Missing or invalid required fields" });
+    return;
+  }
+
+  try {
+    const { uploadURL, publicPath } = await objectStorageService.getPublicObjectUploadURL(parsed.data.name);
+    res.json({ uploadURL, publicPath });
+  } catch (error) {
+    req.log.error({ err: error }, "Error generating public upload URL");
+    res.status(500).json({ error: "Failed to generate upload URL" });
+  }
+});
+
+/**
  * GET /storage/public-objects/*
  *
  * Serve public assets from PUBLIC_OBJECT_SEARCH_PATHS.
