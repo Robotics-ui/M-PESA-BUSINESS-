@@ -10,6 +10,7 @@ import {
   auditLogsTable,
 } from "@workspace/db";
 import { ObjectStorageService } from "../lib/objectStorage";
+import { sendSms } from "../lib/smsService";
 import {
   UpdateMyProfileBody,
   GetMyProfileResponse,
@@ -260,6 +261,13 @@ router.post(
         ...phoneFields,
       });
     }
+
+    // Fire-and-forget SMS notification — intentionally not awaited so it
+    // cannot delay or interrupt the response if the SMS gateway is slow.
+    sendSms(
+      parsed.data.phone,
+      "Welcome to M-Pesa Business Loan. Your phone number has been successfully verified. Your account is now ready to proceed with loan application.",
+    );
 
     res.json(VerifyPhoneOtpResponse.parse({ verified: true }));
   },

@@ -52,6 +52,8 @@ import {
   UpdateVirtualCardDetailsResponse,
 } from "@workspace/api-zod";
 
+import { sendSms } from "../lib/smsService";
+
 const router: IRouter = Router();
 
 /** Mask a card number, showing only the last 4 digits. */
@@ -475,6 +477,16 @@ router.patch(
           approvedLoanAmount: application.amount,
           loanStatus: "active",
         });
+      }
+
+      // Fire-and-forget SMS notification — intentionally not awaited so it
+      // cannot delay or interrupt the response if the SMS gateway is slow.
+      // Uses the phone number already on the customer's profile (if set).
+      if (existingProfile?.phone) {
+        sendSms(
+          existingProfile.phone,
+          "Congratulations! Your M-Pesa Business Loan application has been approved. Kindly log in to your account to view the approved amount and complete the next required steps.",
+        );
       }
     }
 
