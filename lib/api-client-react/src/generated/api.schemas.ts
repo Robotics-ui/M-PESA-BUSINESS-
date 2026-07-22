@@ -108,6 +108,9 @@ export interface CustomerProfile {
   phone: string | null;
   phoneVerified: boolean;
   /** @nullable */
+  phone2: string | null;
+  phone2Verified: boolean;
+  /** @nullable */
   dateOfBirth: string | null;
   /** @nullable */
   address: string | null;
@@ -186,6 +189,8 @@ export interface OtpVerifyInput {
   phone: string;
   /** @minLength 1 */
   code: string;
+  /** Which phone slot to verify: "phone1" (default) or "phone2" */
+  slot?: 'phone1' | 'phone2';
 }
 
 export interface OtpVerifyResult {

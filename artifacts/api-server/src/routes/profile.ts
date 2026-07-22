@@ -244,16 +244,20 @@ router.post(
       .from(customerProfilesTable)
       .where(eq(customerProfilesTable.userId, req.user!.id));
 
+    const isPhone2Slot = parsed.data.slot === "phone2";
+    const phoneFields = isPhone2Slot
+      ? { phone2: parsed.data.phone, phone2Verified: true }
+      : { phone: parsed.data.phone, phoneVerified: true };
+
     if (existing) {
       await db
         .update(customerProfilesTable)
-        .set({ phone: parsed.data.phone, phoneVerified: true })
+        .set(phoneFields)
         .where(eq(customerProfilesTable.userId, req.user!.id));
     } else {
       await db.insert(customerProfilesTable).values({
         userId: req.user!.id,
-        phone: parsed.data.phone,
-        phoneVerified: true,
+        ...phoneFields,
       });
     }
 

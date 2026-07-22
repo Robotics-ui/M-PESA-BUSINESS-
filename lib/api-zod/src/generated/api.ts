@@ -161,6 +161,8 @@ export const GetMyProfileResponse = zod.union([zod.object({
   "userId": zod.string(),
   "phone": zod.string().nullable(),
   "phoneVerified": zod.boolean(),
+  "phone2": zod.string().nullable(),
+  "phone2Verified": zod.boolean(),
   "dateOfBirth": zod.string().nullable(),
   "address": zod.string().nullable(),
   "city": zod.string().nullable(),
@@ -195,6 +197,8 @@ export const UpdateMyProfileResponse = zod.object({
   "userId": zod.string(),
   "phone": zod.string().nullable(),
   "phoneVerified": zod.boolean(),
+  "phone2": zod.string().nullable(),
+  "phone2Verified": zod.boolean(),
   "dateOfBirth": zod.string().nullable(),
   "address": zod.string().nullable(),
   "city": zod.string().nullable(),
@@ -216,7 +220,7 @@ export const UpdateMyProfileResponse = zod.object({
 export const ListMyDocumentsResponseItem = zod.object({
   "id": zod.string(),
   "customerId": zod.string(),
-  "type": zod.enum(['id_front', 'id_back', 'selfie', 'supporting']),
+  "type": zod.enum(['id_front', 'id_back', 'selfie', 'supporting', 'company_registration', 'cr12', 'cr1', 'cr2', 'cr8']),
   "fileName": zod.string(),
   "fileUrl": zod.string(),
   "uploadedAt": zod.coerce.date()
@@ -232,7 +236,7 @@ export const ListMyDocumentsResponse = zod.array(ListMyDocumentsResponseItem)
 
 
 export const AddMyDocumentBody = zod.object({
-  "type": zod.enum(['id_front', 'id_back', 'selfie', 'supporting']),
+  "type": zod.enum(['id_front', 'id_back', 'selfie', 'supporting', 'company_registration', 'cr12', 'cr1', 'cr2', 'cr8']),
   "fileName": zod.string().min(1),
   "fileUrl": zod.string().min(1)
 })
@@ -240,7 +244,7 @@ export const AddMyDocumentBody = zod.object({
 export const AddMyDocumentResponse = zod.object({
   "id": zod.string(),
   "customerId": zod.string(),
-  "type": zod.enum(['id_front', 'id_back', 'selfie', 'supporting']),
+  "type": zod.enum(['id_front', 'id_back', 'selfie', 'supporting', 'company_registration', 'cr12', 'cr1', 'cr2', 'cr8']),
   "fileName": zod.string(),
   "fileUrl": zod.string(),
   "uploadedAt": zod.coerce.date()
@@ -271,7 +275,8 @@ export const RequestPhoneOtpResponse = zod.object({
 
 export const VerifyPhoneOtpBody = zod.object({
   "phone": zod.string().min(1),
-  "code": zod.string().min(1)
+  "code": zod.string().min(1),
+  "slot": zod.enum(["phone1", "phone2"]).optional().default("phone1")
 })
 
 export const VerifyPhoneOtpResponse = zod.object({
@@ -505,6 +510,8 @@ export const GetCustomerDetailResponse = zod.object({
   "userId": zod.string(),
   "phone": zod.string().nullable(),
   "phoneVerified": zod.boolean(),
+  "phone2": zod.string().nullable(),
+  "phone2Verified": zod.boolean(),
   "dateOfBirth": zod.string().nullable(),
   "address": zod.string().nullable(),
   "city": zod.string().nullable(),
@@ -521,7 +528,7 @@ export const GetCustomerDetailResponse = zod.object({
   "documents": zod.array(zod.object({
   "id": zod.string(),
   "customerId": zod.string(),
-  "type": zod.enum(['id_front', 'id_back', 'selfie', 'supporting']),
+  "type": zod.enum(['id_front', 'id_back', 'selfie', 'supporting', 'company_registration', 'cr12', 'cr1', 'cr2', 'cr8']),
   "fileName": zod.string(),
   "fileUrl": zod.string(),
   "uploadedAt": zod.coerce.date()
@@ -889,6 +896,8 @@ export const UpdateCustomerLoanAmountResponse = zod.object({
   "userId": zod.string(),
   "phone": zod.string().nullable(),
   "phoneVerified": zod.boolean(),
+  "phone2": zod.string().nullable(),
+  "phone2Verified": zod.boolean(),
   "dateOfBirth": zod.string().nullable(),
   "address": zod.string().nullable(),
   "city": zod.string().nullable(),
@@ -920,6 +929,8 @@ export const UpdateCustomerLoanStatusResponse = zod.object({
   "userId": zod.string(),
   "phone": zod.string().nullable(),
   "phoneVerified": zod.boolean(),
+  "phone2": zod.string().nullable(),
+  "phone2Verified": zod.boolean(),
   "dateOfBirth": zod.string().nullable(),
   "address": zod.string().nullable(),
   "city": zod.string().nullable(),

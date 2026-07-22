@@ -12,6 +12,8 @@ export const customerProfilesTable = pgTable("customer_profiles", {
     .references(() => usersTable.id, { onDelete: "cascade" }),
   phone: varchar("phone").unique(),
   phoneVerified: boolean("phone_verified").notNull().default(false),
+  phone2: varchar("phone2").unique(),
+  phone2Verified: boolean("phone2_verified").notNull().default(false),
   dateOfBirth: date("date_of_birth", { mode: "string" }),
   address: text("address"),
   city: varchar("city"),

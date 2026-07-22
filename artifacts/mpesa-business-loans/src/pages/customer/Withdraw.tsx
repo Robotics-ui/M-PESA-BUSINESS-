@@ -449,6 +449,30 @@ export default function Withdraw() {
     ? STEPS_WITH_GUARANTOR
     : STEPS_WITHOUT_GUARANTOR;
 
+  // ── Pre-flight conditions (reused in checklist + submit gate) ─────────────
+  const approvedCardCount = cards?.filter((c) => c.status === "approved").length ?? 0;
+  const hasPhone1Verified = !!profile?.phoneVerified;
+  const hasPhone2Verified = !!profile?.phone2Verified;
+  const hasAnyCard = approvedCardCount >= 1;
+  const hasTwoCards = approvedCardCount >= 2;
+  const isPartialAmount = parsedAmountNum > 0 && parsedAmountNum < approvedAmount;
+  const isFullAmount = parsedAmountNum > 0 && parsedAmountNum >= approvedAmount;
+  const hasGuarantorBool = !!guarantor;
+  const hasAllBizDocs =
+    !!profile?.profileComplete &&
+    BUSINESS_DOC_TYPES.every((t) => documents?.some((d) => d.type === t));
+  const partialDocsMet = hasGuarantorBool || hasAllBizDocs;
+  const amountOk =
+    parsedAmountNum > 0 &&
+    parsedAmountNum <= approvedAmount &&
+    !!phoneInput.trim();
+  const allWithdrawalConditionsMet =
+    hasPhone1Verified &&
+    hasPhone2Verified &&
+    hasAnyCard &&
+    amountOk &&
+    (isPartialAmount ? partialDocsMet : isFullAmount ? hasTwoCards : false);
+
   // Helper: returns days remaining until expiresAt (null if not set)
   const expiresAt = activeWithdrawal?.expiresAt
     ? new Date(activeWithdrawal.expiresAt as unknown as string)
@@ -970,11 +994,7 @@ export default function Withdraw() {
                   initiating ||
                   sendingOtp ||
                   profileLoading ||
-                  approvedAmount <= 0 ||
-                  !phoneInput.trim() ||
-                  !amountInput ||
-                  parseFloat(amountInput) <= 0 ||
-                  parseFloat(amountInput) > approvedAmount
+                  !allWithdrawalConditionsMet
                 }
               >
                 {initiating || sendingOtp
@@ -988,32 +1008,86 @@ export default function Withdraw() {
           </CardContent>
         </Card>
 
-        <Card className="bg-muted/40">
-          <CardContent className="pt-4 pb-4">
-            <p className="text-sm font-medium text-foreground mb-2">Requirements by withdrawal type</p>
-            <div className="space-y-3 text-xs text-muted-foreground">
-              <div>
-                <p className="font-semibold text-foreground mb-1">Partial withdrawal</p>
-                <p className="mb-1">You need <span className="font-medium">one</span> of:</p>
-                <ul className="list-disc pl-4 space-y-1">
-                  <li>A registered <span className="font-medium">company guarantor</span> (add one from the Guarantor page), <span className="font-medium">or</span></li>
-                  <li>A completed profile + all 5 business documents: <span className="font-medium">Company Registration Certificate, CR12, CR1, CR2, CR8</span> (upload from your Profile page)</li>
-                </ul>
+        {/* ── Live checklist ──────────────────────────────────────────── */}
+        <Card className={allWithdrawalConditionsMet ? "border-green-200 bg-green-50/40" : "border-amber-200 bg-amber-50/40"}>
+          <CardHeader className="pb-2 pt-4">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              {allWithdrawalConditionsMet
+                ? <CheckCircle2 className="h-4 w-4 text-green-600" />
+                : <AlertTriangle className="h-4 w-4 text-amber-600" />}
+              {allWithdrawalConditionsMet ? "All requirements met" : "Complete all requirements to proceed"}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pb-4 space-y-2 text-sm">
+
+            {/* ── Always-required rows ─────────────────────────────────── */}
+            {(
+              [
+                { ok: hasPhone1Verified, label: "M-Pesa number 1 verified", path: "/profile" },
+                { ok: hasPhone2Verified, label: "M-Pesa number 2 verified", path: "/profile" },
+                { ok: hasAnyCard,        label: "At least 1 approved virtual card", path: "/virtual-card" },
+              ] as { ok: boolean; label: string; path: string }[]
+            ).map(({ ok, label, path }) => (
+              <div key={label} className="flex items-center gap-2">
+                {ok
+                  ? <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
+                  : <XCircle className="h-4 w-4 text-red-500 shrink-0" />}
+                <span className={ok ? "text-foreground" : "text-muted-foreground flex-1"}>{label}</span>
+                {!ok && (
+                  <button
+                    type="button"
+                    onClick={() => navigate(path)}
+                    className="ml-auto text-xs text-primary underline shrink-0"
+                  >
+                    Fix →
+                  </button>
+                )}
               </div>
-              <div>
-                <p className="font-semibold text-foreground mb-1">Full withdrawal</p>
-                <ul className="list-disc pl-4 space-y-1">
-                  <li>At least <span className="font-medium">2 approved virtual cards</span> on file</li>
-                </ul>
+            ))}
+
+            {/* ── Type-specific row (shows once amount is entered) ─────── */}
+            {isPartialAmount && (
+              <div className="flex items-start gap-2 border-t border-border/40 pt-2 mt-1">
+                {partialDocsMet
+                  ? <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0 mt-0.5" />
+                  : <XCircle className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />}
+                <div className="flex-1 min-w-0">
+                  <span className={partialDocsMet ? "text-foreground" : "text-muted-foreground"}>
+                    Partial withdrawal: company guarantor or all 5 business documents
+                    {hasGuarantorBool && <span className="text-green-700"> (guarantor on file ✓)</span>}
+                    {!hasGuarantorBool && hasAllBizDocs && <span className="text-green-700"> (documents complete ✓)</span>}
+                  </span>
+                  {!partialDocsMet && (
+                    <div className="flex gap-3 mt-1">
+                      <button type="button" onClick={() => navigate("/guarantor")} className="text-xs text-primary underline">Add guarantor</button>
+                      <button type="button" onClick={() => navigate("/profile")} className="text-xs text-primary underline">Upload business docs</button>
+                    </div>
+                  )}
+                </div>
               </div>
-              <div>
-                <p className="font-semibold text-foreground mb-1">All withdrawals</p>
-                <ul className="list-disc pl-4 space-y-1">
-                  <li>Enter the Safaricom number to receive funds, then confirm with an OTP sent to your in-app notifications.</li>
-                  <li>Enter your virtual card number to authorise the transfer. 3 failed attempts will lock the request.</li>
-                </ul>
+            )}
+
+            {isFullAmount && (
+              <div className="flex items-center gap-2 border-t border-border/40 pt-2 mt-1">
+                {hasTwoCards
+                  ? <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
+                  : <XCircle className="h-4 w-4 text-red-500 shrink-0" />}
+                <span className={hasTwoCards ? "text-foreground" : "text-muted-foreground flex-1"}>
+                  Full withdrawal: {approvedCardCount}/2 approved virtual cards
+                </span>
+                {!hasTwoCards && (
+                  <button type="button" onClick={() => navigate("/virtual-card")} className="ml-auto text-xs text-primary underline shrink-0">
+                    Add card →
+                  </button>
+                )}
               </div>
-            </div>
+            )}
+
+            {!isPartialAmount && !isFullAmount && (
+              <p className="text-xs text-muted-foreground border-t border-border/40 pt-2 mt-1">
+                Enter an amount above to see type-specific requirements.
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>

@@ -121,6 +121,15 @@ router.post("/withdrawals", async (req: Request, res: Response): Promise<void> =
     return;
   }
 
+  // 1b. Both M-Pesa numbers must be verified before any withdrawal
+  if (!profile.phoneVerified || !profile.phone2Verified) {
+    res.status(409).json({
+      error:
+        "You must verify 2 M-Pesa numbers before withdrawing. Please add and verify both numbers in your Profile settings.",
+    });
+    return;
+  }
+
   const approvedAmount = Number(profile.approvedLoanAmount ?? "0");
   if (approvedAmount <= 0) {
     res.status(409).json({ error: "No approved loan amount set by admin." });

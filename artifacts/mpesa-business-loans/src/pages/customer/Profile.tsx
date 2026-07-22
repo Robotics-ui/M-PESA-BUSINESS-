@@ -38,6 +38,7 @@ export default function Profile() {
 
   const [form, setForm] = useState({
     phone: "",
+    phone2: "",
     dateOfBirth: "",
     address: "",
     city: "",
@@ -45,12 +46,15 @@ export default function Profile() {
   });
   const [otpCode, setOtpCode] = useState("");
   const [otpSent, setOtpSent] = useState(false);
+  const [otpCode2, setOtpCode2] = useState("");
+  const [otpSent2, setOtpSent2] = useState(false);
   const [uploadingSlot, setUploadingSlot] = useState<string | null>(null);
 
   useEffect(() => {
     if (profile) {
       setForm({
         phone: profile.phone ?? "",
+        phone2: profile.phone2 ?? "",
         dateOfBirth: profile.dateOfBirth ?? "",
         address: profile.address ?? "",
         city: profile.city ?? "",
@@ -69,11 +73,12 @@ export default function Profile() {
     },
   });
 
+  // ── Phone 1 OTP ──────────────────────────────────────────────────────────
   const { mutate: requestOtp, isPending: requestingOtp } = useRequestPhoneOtp({
     mutation: {
       onSuccess: () => {
         setOtpSent(true);
-        toast({ title: "Verification code sent", description: "Check your notifications for the code." });
+        toast({ title: "Code sent", description: "Check your notifications for the code." });
       },
       onError: () => toast({ title: "Couldn't send code", variant: "destructive" }),
     },
@@ -84,9 +89,36 @@ export default function Profile() {
       onSuccess: (result) => {
         if (result.verified) {
           queryClient.invalidateQueries({ queryKey: getGetMyProfileQueryKey() });
-          toast({ title: "Phone number verified" });
+          toast({ title: "M-Pesa number 1 verified" });
           setOtpSent(false);
           setOtpCode("");
+        } else {
+          toast({ title: "Incorrect code", variant: "destructive" });
+        }
+      },
+      onError: () => toast({ title: "Verification failed", variant: "destructive" }),
+    },
+  });
+
+  // ── Phone 2 OTP ──────────────────────────────────────────────────────────
+  const { mutate: requestOtp2, isPending: requestingOtp2 } = useRequestPhoneOtp({
+    mutation: {
+      onSuccess: () => {
+        setOtpSent2(true);
+        toast({ title: "Code sent", description: "Check your notifications for the code." });
+      },
+      onError: () => toast({ title: "Couldn't send code", variant: "destructive" }),
+    },
+  });
+
+  const { mutate: verifyOtp2, isPending: verifying2 } = useVerifyPhoneOtp({
+    mutation: {
+      onSuccess: (result) => {
+        if (result.verified) {
+          queryClient.invalidateQueries({ queryKey: getGetMyProfileQueryKey() });
+          toast({ title: "M-Pesa number 2 verified" });
+          setOtpSent2(false);
+          setOtpCode2("");
         } else {
           toast({ title: "Incorrect code", variant: "destructive" });
         }
@@ -240,71 +272,143 @@ export default function Profile() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4" /> Phone verification
+            <ShieldCheck className="h-4 w-4" /> M-Pesa numbers
           </CardTitle>
           <CardDescription>
-            {profile?.phoneVerified ? "Your phone number is verified." : "Verify your phone number by SMS."}
+            You must verify <strong>2 M-Pesa numbers</strong> before you can make any withdrawal.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-end gap-3">
-            <div className="flex-1 space-y-2">
-              <Label htmlFor="phone">Phone number</Label>
-              <Input
-                id="phone"
-                placeholder="+254700000000"
-                value={form.phone}
-                onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
-                data-testid="input-phone"
-              />
+        <CardContent className="space-y-6">
+
+          {/* ── Slot 1 ─────────────────────────────────────────────────────── */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold">M-Pesa number 1</span>
+              {profile?.phoneVerified && (
+                <Badge variant="outline" className="text-green-700 border-green-300 bg-green-50">
+                  <Check className="h-3 w-3 mr-1" /> Verified
+                </Badge>
+              )}
             </div>
-            {profile?.phoneVerified ? (
-              <Badge className="mb-0.5" variant="outline">
-                <Check className="h-3 w-3 mr-1" /> Verified
-              </Badge>
-            ) : (
-              <Button
-                type="button"
-                variant="outline"
-                disabled={requestingOtp || !form.phone}
-                onClick={async () => {
-                  await saveProfile({ data: { phone: form.phone } });
-                  requestOtp({ data: { phone: form.phone } });
-                }}
-                data-testid="button-request-otp"
-              >
-                {requestingOtp ? "Sending..." : "Send code"}
-              </Button>
+            <div className="flex items-end gap-3">
+              <div className="flex-1 space-y-2">
+                <Label htmlFor="phone">Phone number</Label>
+                <Input
+                  id="phone"
+                  placeholder="+254700000000"
+                  value={form.phone}
+                  onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+                  data-testid="input-phone"
+                />
+              </div>
+              {!profile?.phoneVerified && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={requestingOtp || !form.phone}
+                  onClick={async () => {
+                    await saveProfile({ data: { phone: form.phone } });
+                    requestOtp({ data: { phone: form.phone } });
+                  }}
+                  data-testid="button-request-otp"
+                >
+                  {requestingOtp ? "Sending…" : "Send code"}
+                </Button>
+              )}
+            </div>
+            {otpSent && !profile?.phoneVerified && (
+              <div className="rounded-md border border-dashed border-border p-4 space-y-3">
+                <p className="text-xs text-muted-foreground">
+                  Code sent — check the notification bell at the top of the page.
+                </p>
+                <div className="flex items-end gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="otp">Enter code</Label>
+                    <Input
+                      id="otp"
+                      value={otpCode}
+                      onChange={(e) => setOtpCode(e.target.value)}
+                      maxLength={6}
+                      data-testid="input-otp-code"
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    disabled={verifying || !otpCode}
+                    onClick={() => verifyOtp({ data: { phone: form.phone, code: otpCode, slot: "phone1" } })}
+                    data-testid="button-verify-otp"
+                  >
+                    {verifying ? "Verifying…" : "Verify"}
+                  </Button>
+                </div>
+              </div>
             )}
           </div>
 
-          {otpSent && !profile?.phoneVerified && (
-            <div className="rounded-md border border-dashed border-border p-4 space-y-3">
-              <p className="text-xs text-muted-foreground">
-                Your verification code was sent — check the notification bell at the top of the page.
-              </p>
-              <div className="flex items-end gap-3">
-                <div className="space-y-2">
-                  <Label htmlFor="otp">Enter code</Label>
-                  <Input
-                    id="otp"
-                    value={otpCode}
-                    onChange={(e) => setOtpCode(e.target.value)}
-                    maxLength={6}
-                    data-testid="input-otp-code"
-                  />
-                </div>
+          <Separator />
+
+          {/* ── Slot 2 ─────────────────────────────────────────────────────── */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold">M-Pesa number 2</span>
+              {profile?.phone2Verified && (
+                <Badge variant="outline" className="text-green-700 border-green-300 bg-green-50">
+                  <Check className="h-3 w-3 mr-1" /> Verified
+                </Badge>
+              )}
+            </div>
+            <div className="flex items-end gap-3">
+              <div className="flex-1 space-y-2">
+                <Label htmlFor="phone2">Phone number</Label>
+                <Input
+                  id="phone2"
+                  placeholder="+254700000000"
+                  value={form.phone2}
+                  onChange={(e) => setForm((f) => ({ ...f, phone2: e.target.value }))}
+                  data-testid="input-phone2"
+                />
+              </div>
+              {!profile?.phone2Verified && (
                 <Button
                   type="button"
-                  disabled={verifying || !otpCode}
-                  onClick={() => verifyOtp({ data: { phone: form.phone, code: otpCode } })}
-                  data-testid="button-verify-otp"
+                  variant="outline"
+                  disabled={requestingOtp2 || !form.phone2}
+                  onClick={() => requestOtp2({ data: { phone: form.phone2 } })}
+                  data-testid="button-request-otp2"
                 >
-                  {verifying ? "Verifying..." : "Verify"}
+                  {requestingOtp2 ? "Sending…" : "Send code"}
                 </Button>
-              </div>
+              )}
             </div>
-          )}
+            {otpSent2 && !profile?.phone2Verified && (
+              <div className="rounded-md border border-dashed border-border p-4 space-y-3">
+                <p className="text-xs text-muted-foreground">
+                  Code sent — check the notification bell at the top of the page.
+                </p>
+                <div className="flex items-end gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="otp2">Enter code</Label>
+                    <Input
+                      id="otp2"
+                      value={otpCode2}
+                      onChange={(e) => setOtpCode2(e.target.value)}
+                      maxLength={6}
+                      data-testid="input-otp-code2"
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    disabled={verifying2 || !otpCode2}
+                    onClick={() => verifyOtp2({ data: { phone: form.phone2, code: otpCode2, slot: "phone2" } })}
+                    data-testid="button-verify-otp2"
+                  >
+                    {verifying2 ? "Verifying…" : "Verify"}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+
         </CardContent>
       </Card>
 
