@@ -25,11 +25,24 @@ lib/object-storage-web/        File upload helpers
 scripts/                       CLI utilities (seed, user management)
 ```
 
+## First-time setup
+
+After cloning or importing this repo into a fresh environment, run these once before starting the workflows:
+
+```bash
+pnpm install                          # install all workspace dependencies
+pnpm --filter @workspace/db run push  # push Drizzle schema to the Replit-managed Postgres DB
+```
+
+The post-merge script (`scripts/post-merge.sh`) runs these two steps automatically after any task-agent merge.
+
 ## Running locally
 
 Both workflows are pre-configured:
 - **API Server** — `artifacts/api-server: API Server`
 - **Frontend** — `artifacts/mpesa-business-loans: web`
+
+Start both by pressing **Run**, or restart them individually from the Workflows panel.
 
 ## Admin credentials
 
