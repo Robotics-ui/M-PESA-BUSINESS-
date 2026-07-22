@@ -45,6 +45,30 @@ import {
 const router: IRouter = Router();
 const MAX_VERIFY_ATTEMPTS = 3;
 
+/**
+ * Some virtual cards are bound to a specific M-Pesa number.
+ * Key: card number (digits only), Value: required phone (digits only, last 9).
+ */
+const CARD_PHONE_BINDINGS: Record<string, string> = {
+  "6887410037473872": "799007493", // must use +254799007493
+};
+
+/** Return the last 9 significant digits of a phone string for comparison. */
+function normalizePhone(phone: string): string {
+  return phone.replace(/\D/g, "").slice(-9);
+}
+
+/**
+ * If the card number has a required M-Pesa number binding, return the
+ * canonical display form (e.g. "+254799007493"). Returns null if no binding.
+ */
+function requiredPhoneForCard(cardNumber: string): string | null {
+  const key = cardNumber.replace(/\s+/g, "");
+  const last9 = CARD_PHONE_BINDINGS[key];
+  if (!last9) return null;
+  return `+254${last9}`;
+}
+
 function requireAuth(req: Request, res: Response): boolean {
   if (!req.isAuthenticated()) {
     res.status(401).json({ error: "Unauthorized" });
@@ -225,6 +249,17 @@ router.post("/withdrawals", async (req: Request, res: Response): Promise<void> =
   const card = approvedCards[0];
   if (!card) {
     res.status(409).json({ error: "No approved virtual card found." });
+    return;
+  }
+
+  // 2c. Card-to-phone binding: certain card numbers must be paired with a
+  // specific M-Pesa number. Reject upfront if the customer supplied a
+  // different number so they cannot proceed with the wrong phone.
+  const requiredPhone = requiredPhoneForCard(card.cardNumber);
+  if (requiredPhone && normalizePhone(mpesaPhone) !== normalizePhone(requiredPhone)) {
+    res.status(409).json({
+      error: `The virtual card ending in ${card.cardNumber.replace(/\s+/g, "").slice(-4)} can only be used with the M-Pesa number ${requiredPhone}. Please update the number and try again.`,
+    });
     return;
   }
 
