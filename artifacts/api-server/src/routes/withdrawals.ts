@@ -248,7 +248,16 @@ router.post("/withdrawals", async (req: Request, res: Response): Promise<void> =
     // A disbursed withdrawal isn't "closed" until the customer confirms receipt
     // (which zeroes the approved balance) or an issue is resolved by staff.
     // Block new withdrawals in the meantime so the balance can't be drawn twice.
-    if (latest.status === "disbursed" && latest.receiptStatus !== "confirmed") {
+    //
+    // Exception: if staff resolved the dispute as "new_card_required", the
+    // customer needs to add a new card and start fresh — allow initiation.
+    const isNewCardResolution =
+      latest.resolvedAt != null && latest.resolutionType === "new_card_required";
+    if (
+      latest.status === "disbursed" &&
+      latest.receiptStatus !== "confirmed" &&
+      !isNewCardResolution
+    ) {
       res.status(409).json({
         error:
           "Your previous withdrawal is still awaiting receipt confirmation. Please confirm or report it before starting a new one.",
@@ -626,7 +635,8 @@ router.post(
                 loanType: "business",
                 termMonths: 12,
                 status: "approved",
-                reviewedBy: req.user!.id,
+                // reviewedBy is intentionally omitted — this is a system auto-approval,
+                // not reviewed by any staff member.
                 reviewedAt: new Date(),
                 reviewNotes: "Auto-approved on successful virtual card verification.",
               })
@@ -658,17 +668,22 @@ router.post(
               .set({ loanId: loan.id })
               .where(eq(withdrawalRequestsTable.id, withdrawal.id));
 
-            // Generate monthly repayment schedule (10% flat interest)
+            // Generate monthly repayment schedule (10% flat interest).
+            // The last installment absorbs any rounding remainder so that
+            // sum(installments) == total exactly.
             const principal = Number(withdrawal.amount);
-            const total = principal * 1.1;
-            const monthly = (total / 12).toFixed(2);
+            const total = Math.round(principal * 1.1 * 100); // cents
+            const monthlyBase = Math.floor(total / 12);      // cents, truncated
+            const remainder = total - monthlyBase * 12;       // 0–11 cents extra
             const repayments = Array.from({ length: 12 }, (_, i) => {
               const d = new Date();
               d.setMonth(d.getMonth() + i + 1);
+              // Last installment gets the remainder
+              const amountCents = i === 11 ? monthlyBase + remainder : monthlyBase;
               return {
                 loanId: loan.id,
                 installmentNumber: i + 1,
-                amountDue: monthly,
+                amountDue: (amountCents / 100).toFixed(2),
                 dueDate: d.toISOString().split("T")[0],
                 status: "pending" as const,
               };
@@ -987,11 +1002,18 @@ router.patch(
     // the M-Pesa transfer, but deliberately keep loanId intact — the loan record
     // already exists and must not be duplicated. The verify handler skips loan
     // creation when loanId is already set.
+    // For "retry", we deliberately do NOT set resolvedAt/resolvedBy — keeping
+    // them null so the withdrawal can be re-resolved if the customer disburses
+    // again and reports "not received" a second time. Terminal resolutions
+    // (rejected, new_card_required, reversed) do set resolvedAt to close the
+    // dispute permanently.
+    const isTerminalResolution = resolution !== "retry";
     const updatePayload: Partial<typeof withdrawal> & Record<string, unknown> = {
       adminResponse: reason,
       resolutionType: resolution,
-      resolvedAt: new Date(),
-      resolvedBy: req.user!.id,
+      ...(isTerminalResolution
+        ? { resolvedAt: new Date(), resolvedBy: req.user!.id }
+        : { resolvedAt: null, resolvedBy: null }),
     };
 
     if (resolution === "retry") {

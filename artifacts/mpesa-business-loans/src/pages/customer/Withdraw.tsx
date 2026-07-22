@@ -753,12 +753,29 @@ export default function Withdraw() {
           )}
 
           {isNewCard && (
-            <Button
-              className="w-full"
-              onClick={() => navigate("/virtual-card")}
-            >
-              <CreditCard className="h-4 w-4 mr-2" /> Add a new virtual card
-            </Button>
+            <>
+              <Button
+                className="w-full"
+                onClick={() => navigate("/virtual-card")}
+              >
+                <CreditCard className="h-4 w-4 mr-2" /> Add a new virtual card
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => {
+                  // Once they've added the new card, let them start a fresh
+                  // withdrawal (the backend now allows this after new_card_required).
+                  setWithdrawalId(null);
+                  setReceiptData(null);
+                  setPhoneInput(profile?.phone ?? "");
+                  setAmountInput(profile?.approvedLoanAmount?.toString() ?? "");
+                  setStep("phone");
+                }}
+              >
+                <Wallet className="h-4 w-4 mr-2" /> Start new withdrawal
+              </Button>
+            </>
           )}
 
           {isReversed && (
