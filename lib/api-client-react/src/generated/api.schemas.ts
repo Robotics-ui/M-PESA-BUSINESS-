@@ -189,8 +189,7 @@ export interface OtpVerifyInput {
   phone: string;
   /** @minLength 1 */
   code: string;
-  /** Which phone slot to verify: "phone1" (default) or "phone2" */
-  slot?: 'phone1' | 'phone2';
+  slot?: string;
 }
 
 export interface OtpVerifyResult {
@@ -391,7 +390,9 @@ export interface WithdrawalRequest {
   customerId: string;
   amount: string;
   mpesaPhone: string;
-  virtualCardId: string;
+  /** @nullable */
+  virtualCardId: string | null;
+  isTrial: boolean;
   status: WithdrawalStatus;
   otpVerified: boolean;
   verificationAttempts: number;
@@ -450,6 +451,8 @@ export interface InitiateWithdrawalBody {
      * @minLength 9
      */
   mpesaPhone: string;
+  /** Amount to withdraw (KES). Defaults to the full approved loan amount. */
+  amount?: number;
 }
 
 export interface RequestWithdrawalOtpResponse {

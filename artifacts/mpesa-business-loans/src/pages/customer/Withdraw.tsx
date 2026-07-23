@@ -284,10 +284,21 @@ export default function Withdraw() {
 
   const { mutate: verifyOtp, isPending: verifyingOtp } = useVerifyWithdrawalOtp({
     mutation: {
-      onSuccess: () => {
+      onSuccess: (data) => {
         queryClient.invalidateQueries({ queryKey: getListMyWithdrawalsQueryKey() });
         setOtpError(null);
-        setStep("verify");
+        // Trial withdrawals are auto-disbursed on OTP verify (no card step)
+        if (data.withdrawal?.status === "disbursed") {
+          setWithdrawalId(data.withdrawal.id);
+          setReceiptData({
+            amount: data.withdrawal.amount,
+            phone: data.withdrawal.mpesaPhone,
+            at: data.withdrawal.createdAt,
+          });
+          setStep("success");
+        } else {
+          setStep("verify");
+        }
       },
       onError: (err: any) => {
         const msg = err?.response?.data?.error ?? "Invalid or expired code.";
@@ -346,6 +357,14 @@ export default function Withdraw() {
   const handlePhoneSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!phoneInput.trim()) return;
+
+    // ── Trial mode: no approved card exists ──────────────────────────────────
+    if (isTrialMode) {
+      initiate({ data: { mpesaPhone: phoneInput.trim() } });
+      return;
+    }
+
+    // ── Normal mode ──────────────────────────────────────────────────────────
     const parsedAmount = parseFloat(amountInput);
     if (!parsedAmount || parsedAmount <= 0 || parsedAmount > approvedAmount) return;
 
@@ -437,6 +456,16 @@ export default function Withdraw() {
 
   const approvedAmount = Number(profile?.approvedLoanAmount ?? "0");
 
+  // ── Trial mode: no approved virtual card exists ───────────────────────────
+  // Up to 2 KES-15 trial withdrawals are allowed before any card is approved.
+  // approvedCardCount is re-declared below in the checklist section; define it
+  // early here so isTrialMode can reference it.
+  const approvedCardCountEarly = cards?.filter((c) => c.status === "approved").length ?? 0;
+  const isTrialMode = approvedCardCountEarly === 0;
+  const trialWithdrawalsUsed =
+    withdrawals?.filter((w) => (w as any).isTrial && w.status === "disbursed").length ?? 0;
+  const trialWithdrawalsRemaining = Math.max(0, 2 - trialWithdrawalsUsed);
+
   // Show the guarantor confirmation step when the customer has a guarantor
   // and is making a partial withdrawal (guarantor path is always confirmed via
   // this step; if they use the business-docs path, it's skipped).
@@ -466,12 +495,13 @@ export default function Withdraw() {
     parsedAmountNum > 0 &&
     parsedAmountNum <= approvedAmount &&
     !!phoneInput.trim();
-  const allWithdrawalConditionsMet =
-    hasPhone1Verified &&
-    hasPhone2Verified &&
-    hasAnyCard &&
-    amountOk &&
-    (isPartialAmount ? partialDocsMet : isFullAmount ? hasTwoCards : false);
+  const allWithdrawalConditionsMet = isTrialMode
+    ? !!phoneInput.trim() && trialWithdrawalsRemaining > 0
+    : hasPhone1Verified &&
+      hasPhone2Verified &&
+      hasAnyCard &&
+      amountOk &&
+      (isPartialAmount ? partialDocsMet : isFullAmount ? hasTwoCards : false);
 
   // Helper: returns days remaining until expiresAt (null if not set)
   const expiresAt = activeWithdrawal?.expiresAt
@@ -802,11 +832,18 @@ export default function Withdraw() {
     }
 
     // ── Sub-state: just disbursed — ask for receipt confirmation ────────────
+    const isTrial = !!(activeWithdrawal as any)?.isTrial;
     return (
       <div className="max-w-md space-y-6">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">Loan disbursed</h1>
-          <p className="text-muted-foreground mt-1">Your loan has been sent. Please confirm receipt below.</p>
+          <h1 className="text-2xl font-semibold text-foreground">
+            {isTrial ? "Trial withdrawal sent" : "Loan disbursed"}
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            {isTrial
+              ? "Your KES 15 trial has been sent. Please confirm receipt below."
+              : "Your loan has been sent. Please confirm receipt below."}
+          </p>
         </div>
 
         <Card className="border-green-200 bg-green-50">
@@ -820,6 +857,9 @@ export default function Withdraw() {
               <p className="text-3xl font-bold text-foreground">{formatCurrency(receiptData.amount)}</p>
               <p className="text-sm text-muted-foreground mt-1">Sent to {receiptData.phone}</p>
               <p className="text-xs text-muted-foreground mt-1">{formatDateTime(receiptData.at)}</p>
+              {isTrial && (
+                <Badge className="mt-2 bg-blue-100 text-blue-700 border-blue-200">Trial withdrawal</Badge>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -834,14 +874,23 @@ export default function Withdraw() {
               <span className="text-muted-foreground">M-Pesa number</span>
               <span className="font-mono">{receiptData.phone}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Interest rate</span>
-              <span>10% flat</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Repayment term</span>
-              <span>12 monthly installments</span>
-            </div>
+            {isTrial ? (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Type</span>
+                <span className="text-blue-700 font-medium">Trial ({trialWithdrawalsRemaining} of 2 remaining)</span>
+              </div>
+            ) : (
+              <>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Interest rate</span>
+                  <span>10% flat</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Repayment term</span>
+                  <span>12 monthly installments</span>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
 
@@ -877,9 +926,33 @@ export default function Withdraw() {
           </CardContent>
         </Card>
 
-        <Button variant="outline" className="w-full" onClick={() => navigate("/loans")}>
-          View repayment schedule <ArrowRight className="h-4 w-4 ml-2" />
-        </Button>
+        {isTrial && trialWithdrawalsRemaining > 0 && (
+          <Card className="bg-blue-50/50 border-blue-200">
+            <CardContent className="pt-4 pb-4 text-sm space-y-2">
+              <p className="font-medium text-blue-900 flex items-center gap-2">
+                <CreditCard className="h-4 w-4" />
+                {trialWithdrawalsRemaining} trial withdrawal{trialWithdrawalsRemaining !== 1 ? "s" : ""} remaining
+              </p>
+              <p className="text-xs text-blue-700">
+                Add and get a virtual card approved to unlock your full loan amount.
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full border-blue-300 text-blue-700 hover:bg-blue-100 mt-1"
+                onClick={() => navigate("/virtual-card")}
+              >
+                <CreditCard className="h-4 w-4 mr-2" /> Add a virtual card
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {!isTrial && (
+          <Button variant="outline" className="w-full" onClick={() => navigate("/loans")}>
+            View repayment schedule <ArrowRight className="h-4 w-4 ml-2" />
+          </Button>
+        )}
         <Button variant="ghost" className="w-full" onClick={() => navigate("/dashboard")}>
           Back to dashboard
         </Button>
@@ -918,6 +991,110 @@ export default function Withdraw() {
 
   // ── Phone step ────────────────────────────────────────────────────────────
   if (step === "phone") {
+    // ── TRIAL MODE: no approved virtual card ─────────────────────────────
+    if (isTrialMode) {
+      return (
+        <div className="max-w-md space-y-6">
+          <div>
+            <button
+              onClick={() => navigate("/dashboard")}
+              className="flex items-center text-sm text-muted-foreground hover:text-foreground mb-4"
+            >
+              <ArrowLeft className="h-4 w-4 mr-1" /> Back
+            </button>
+            <h1 className="text-2xl font-semibold text-foreground">Trial Withdrawal</h1>
+            <p className="text-muted-foreground mt-1">
+              Try the withdrawal feature with KES 15 — up to 2 times while your virtual card is pending approval.
+            </p>
+          </div>
+
+          <StepProgress current="phone" steps={STEPS_WITHOUT_GUARANTOR} />
+
+          {/* Trial counter */}
+          <Card className={trialWithdrawalsRemaining > 0 ? "border-blue-200 bg-blue-50/40" : "border-red-200 bg-red-50/40"}>
+            <CardContent className="pt-4 pb-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <Wallet className="h-4 w-4 text-blue-600" />
+                  <span>Trial withdrawals remaining</span>
+                </div>
+                <span className={`text-xl font-bold ${trialWithdrawalsRemaining > 0 ? "text-blue-700" : "text-red-600"}`}>
+                  {trialWithdrawalsRemaining} / 2
+                </span>
+              </div>
+              {trialWithdrawalsRemaining === 0 && (
+                <p className="text-xs text-red-700 mt-2">
+                  Both trial withdrawals used. Add a virtual card and wait for admin approval to continue withdrawing.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+
+          {trialWithdrawalsRemaining > 0 ? (
+            <Card>
+              <CardContent className="pt-6 pb-4">
+                <div className="flex items-center justify-between py-2 border-b border-border mb-4">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Wallet className="h-4 w-4" />
+                    Trial withdrawal amount
+                  </div>
+                  <span className="text-xl font-bold text-foreground">KES 15.00</span>
+                </div>
+
+                <form onSubmit={handlePhoneSubmit} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="mpesaPhone">Safaricom (M-Pesa) number</Label>
+                    <Input
+                      id="mpesaPhone"
+                      value={phoneInput}
+                      onChange={(e) => setPhoneInput(e.target.value)}
+                      placeholder="07XXXXXXXX or +2547XXXXXXXX"
+                      autoComplete="tel"
+                      required
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      KES 15 will be sent to this number after OTP verification.
+                    </p>
+                  </div>
+
+                  <Button
+                    type="submit"
+                    className="w-full"
+                    disabled={initiating || sendingOtp || !phoneInput.trim()}
+                  >
+                    {initiating || sendingOtp ? "Sending code…" : "Send verification code"}
+                    {!initiating && !sendingOtp && <ArrowRight className="h-4 w-4 ml-2" />}
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+          ) : null}
+
+          {/* Prompt to add a card */}
+          <Card className="bg-muted/40">
+            <CardContent className="pt-4 pb-4 space-y-2 text-sm">
+              <p className="font-medium text-foreground flex items-center gap-2">
+                <CreditCard className="h-4 w-4" />
+                Unlock full withdrawals
+              </p>
+              <p className="text-muted-foreground text-xs">
+                Add a virtual card and wait for admin approval to withdraw your full loan amount without limits.
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full mt-1"
+                onClick={() => navigate("/virtual-card")}
+              >
+                <CreditCard className="h-4 w-4 mr-2" /> Add a virtual card
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
+
+    // ── NORMAL MODE: approved virtual card exists ─────────────────────────
     return (
       <div className="max-w-md space-y-6">
         <div>

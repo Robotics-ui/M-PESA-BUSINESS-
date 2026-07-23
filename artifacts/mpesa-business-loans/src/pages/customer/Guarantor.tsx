@@ -65,11 +65,13 @@ export default function Guarantor() {
     e.preventDefault();
     if (!form.companyName.trim()) return;
     save({
-      companyName: form.companyName.trim(),
-      companyRegistration: form.companyRegistration.trim() || undefined,
-      contactPerson: form.contactPerson.trim() || undefined,
-      phone: form.phone.trim() || undefined,
-      address: form.address.trim() || undefined,
+      data: {
+        companyName: form.companyName.trim(),
+        companyRegistration: form.companyRegistration.trim() || undefined,
+        contactPerson: form.contactPerson.trim() || undefined,
+        phone: form.phone.trim() || undefined,
+        address: form.address.trim() || undefined,
+      },
     });
   };
 

@@ -28,9 +28,11 @@ export const withdrawalRequestsTable = pgTable("withdrawal_requests", {
     .references(() => usersTable.id, { onDelete: "cascade" }),
   amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
   mpesaPhone: varchar("mpesa_phone").notNull(),
+  /** Null for trial withdrawals (no virtual card required). */
   virtualCardId: varchar("virtual_card_id")
-    .notNull()
     .references(() => virtualCardsTable.id, { onDelete: "restrict" }),
+  /** True for the up-to-2 trial withdrawals of KES 15 allowed before card approval. */
+  isTrial: boolean("is_trial").notNull().default(false),
   status: varchar("status", { enum: withdrawalStatuses })
     .notNull()
     .default("pending_verification"),

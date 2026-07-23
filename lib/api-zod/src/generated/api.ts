@@ -276,7 +276,7 @@ export const RequestPhoneOtpResponse = zod.object({
 export const VerifyPhoneOtpBody = zod.object({
   "phone": zod.string().min(1),
   "code": zod.string().min(1),
-  "slot": zod.enum(["phone1", "phone2"]).optional().default("phone1")
+  "slot": zod.string().optional()
 })
 
 export const VerifyPhoneOtpResponse = zod.object({
@@ -954,7 +954,8 @@ export const ListMyWithdrawalsResponseItem = zod.object({
   "customerId": zod.string(),
   "amount": zod.string(),
   "mpesaPhone": zod.string(),
-  "virtualCardId": zod.string(),
+  "virtualCardId": zod.string().nullable(),
+  "isTrial": zod.boolean(),
   "status": zod.enum(['pending_verification', 'disbursed', 'failed', 'locked', 'expired']),
   "otpVerified": zod.boolean(),
   "verificationAttempts": zod.number(),
@@ -982,7 +983,7 @@ export const initiateWithdrawalBodyMpesaPhoneMin = 9;
 
 export const InitiateWithdrawalBody = zod.object({
   "mpesaPhone": zod.string().min(initiateWithdrawalBodyMpesaPhoneMin).describe('Safaricom (M-Pesa) registered number funds will be sent to.'),
-  "amount": zod.number().positive().optional().describe('Amount to withdraw. Must be > 0 and ≤ approved loan amount. Defaults to full approved amount.')
+  "amount": zod.number().optional().describe('Amount to withdraw (KES). Defaults to the full approved loan amount.')
 })
 
 export const InitiateWithdrawalResponse = zod.object({
@@ -990,7 +991,8 @@ export const InitiateWithdrawalResponse = zod.object({
   "customerId": zod.string(),
   "amount": zod.string(),
   "mpesaPhone": zod.string(),
-  "virtualCardId": zod.string(),
+  "virtualCardId": zod.string().nullable(),
+  "isTrial": zod.boolean(),
   "status": zod.enum(['pending_verification', 'disbursed', 'failed', 'locked', 'expired']),
   "otpVerified": zod.boolean(),
   "verificationAttempts": zod.number(),
@@ -1043,7 +1045,8 @@ export const VerifyWithdrawalOtpResponse = zod.object({
   "customerId": zod.string(),
   "amount": zod.string(),
   "mpesaPhone": zod.string(),
-  "virtualCardId": zod.string(),
+  "virtualCardId": zod.string().nullable(),
+  "isTrial": zod.boolean(),
   "status": zod.enum(['pending_verification', 'disbursed', 'failed', 'locked', 'expired']),
   "otpVerified": zod.boolean(),
   "verificationAttempts": zod.number(),
@@ -1085,7 +1088,8 @@ export const VerifyWithdrawalCardResponse = zod.object({
   "customerId": zod.string(),
   "amount": zod.string(),
   "mpesaPhone": zod.string(),
-  "virtualCardId": zod.string(),
+  "virtualCardId": zod.string().nullable(),
+  "isTrial": zod.boolean(),
   "status": zod.enum(['pending_verification', 'disbursed', 'failed', 'locked', 'expired']),
   "otpVerified": zod.boolean(),
   "verificationAttempts": zod.number(),
@@ -1120,7 +1124,8 @@ export const ConfirmWithdrawalReceiptResponse = zod.object({
   "customerId": zod.string(),
   "amount": zod.string(),
   "mpesaPhone": zod.string(),
-  "virtualCardId": zod.string(),
+  "virtualCardId": zod.string().nullable(),
+  "isTrial": zod.boolean(),
   "status": zod.enum(['pending_verification', 'disbursed', 'failed', 'locked', 'expired']),
   "otpVerified": zod.boolean(),
   "verificationAttempts": zod.number(),
@@ -1159,7 +1164,8 @@ export const ResolveWithdrawalIssueResponse = zod.object({
   "customerId": zod.string(),
   "amount": zod.string(),
   "mpesaPhone": zod.string(),
-  "virtualCardId": zod.string(),
+  "virtualCardId": zod.string().nullable(),
+  "isTrial": zod.boolean(),
   "status": zod.enum(['pending_verification', 'disbursed', 'failed', 'locked', 'expired']),
   "otpVerified": zod.boolean(),
   "verificationAttempts": zod.number(),
@@ -1185,7 +1191,8 @@ export const ListAllWithdrawalsResponseItem = zod.object({
   "customerId": zod.string(),
   "amount": zod.string(),
   "mpesaPhone": zod.string(),
-  "virtualCardId": zod.string(),
+  "virtualCardId": zod.string().nullable(),
+  "isTrial": zod.boolean(),
   "status": zod.enum(['pending_verification', 'disbursed', 'failed', 'locked', 'expired']),
   "otpVerified": zod.boolean(),
   "verificationAttempts": zod.number(),
@@ -1227,7 +1234,8 @@ export const ExtendWithdrawalResponse = zod.object({
   "customerId": zod.string(),
   "amount": zod.string(),
   "mpesaPhone": zod.string(),
-  "virtualCardId": zod.string(),
+  "virtualCardId": zod.string().nullable(),
+  "isTrial": zod.boolean(),
   "status": zod.enum(['pending_verification', 'disbursed', 'failed', 'locked', 'expired']),
   "otpVerified": zod.boolean(),
   "verificationAttempts": zod.number(),
@@ -1266,7 +1274,8 @@ export const SetWithdrawalRetryPeriodResponse = zod.object({
   "customerId": zod.string(),
   "amount": zod.string(),
   "mpesaPhone": zod.string(),
-  "virtualCardId": zod.string(),
+  "virtualCardId": zod.string().nullable(),
+  "isTrial": zod.boolean(),
   "status": zod.enum(['pending_verification', 'disbursed', 'failed', 'locked', 'expired']),
   "otpVerified": zod.boolean(),
   "verificationAttempts": zod.number(),
@@ -1296,7 +1305,8 @@ export const UnlockWithdrawalResponse = zod.object({
   "customerId": zod.string(),
   "amount": zod.string(),
   "mpesaPhone": zod.string(),
-  "virtualCardId": zod.string(),
+  "virtualCardId": zod.string().nullable(),
+  "isTrial": zod.boolean(),
   "status": zod.enum(['pending_verification', 'disbursed', 'failed', 'locked', 'expired']),
   "otpVerified": zod.boolean(),
   "verificationAttempts": zod.number(),
@@ -1315,17 +1325,9 @@ export const UnlockWithdrawalResponse = zod.object({
 
 
 /**
- * @summary Customer creates or updates their own company guarantor
+ * @summary Customer fetches their own company guarantor
  */
-export const UpsertMyGuarantorBody = zod.object({
-  "companyName": zod.string().min(1),
-  "companyRegistration": zod.string().optional(),
-  "contactPerson": zod.string().optional(),
-  "phone": zod.string().optional(),
-  "address": zod.string().optional()
-})
-
-export const UpsertMyGuarantorResponse = zod.object({
+export const GetMyGuarantorResponse = zod.object({
   "id": zod.string(),
   "customerId": zod.string(),
   "companyName": zod.string(),
@@ -1340,9 +1342,20 @@ export const UpsertMyGuarantorResponse = zod.object({
 
 
 /**
- * @summary Customer fetches their own company guarantor
+ * @summary Customer creates or updates their own company guarantor
  */
-export const GetMyGuarantorResponse = zod.object({
+
+
+
+export const UpsertMyGuarantorBody = zod.object({
+  "companyName": zod.string().min(1),
+  "companyRegistration": zod.string().optional(),
+  "contactPerson": zod.string().optional(),
+  "phone": zod.string().optional(),
+  "address": zod.string().optional()
+})
+
+export const UpsertMyGuarantorResponse = zod.object({
   "id": zod.string(),
   "customerId": zod.string(),
   "companyName": zod.string(),

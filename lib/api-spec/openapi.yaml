@@ -1146,6 +1146,29 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
+    put:
+      tags: [Guarantors]
+      operationId: upsertMyGuarantor
+      summary: Customer creates or updates their own company guarantor
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpsertGuarantorBody'
+      responses:
+        '200':
+          description: Guarantor saved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Guarantor'
+        '400':
+          description: Invalid input.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
 
   /admin/customers/{id}/guarantor:
     get:
@@ -1485,6 +1508,8 @@ components:
         - userId
         - phone
         - phoneVerified
+        - phone2
+        - phone2Verified
         - dateOfBirth
         - address
         - city
@@ -1502,6 +1527,8 @@ components:
         userId: { type: string }
         phone: { type: [string, 'null'] }
         phoneVerified: { type: boolean }
+        phone2: { type: [string, 'null'] }
+        phone2Verified: { type: boolean }
         dateOfBirth: { type: [string, 'null'] }
         address: { type: [string, 'null'] }
         city: { type: [string, 'null'] }
@@ -1530,7 +1557,7 @@ components:
 
     DocumentType:
       type: string
-      enum: [id_front, id_back, selfie, supporting]
+      enum: [id_front, id_back, selfie, supporting, company_registration, cr12, cr1, cr2, cr8]
     Document:
       type: object
       required: [id, customerId, type, fileName, fileUrl, uploadedAt]
@@ -1570,6 +1597,7 @@ components:
       properties:
         phone: { type: string, minLength: 1 }
         code: { type: string, minLength: 1 }
+        slot: { type: string }
     OtpVerifyResult:
       type: object
       required: [verified]
@@ -1759,13 +1787,14 @@ components:
       enum: [rejected, new_card_required, retry, reversed]
     WithdrawalRequest:
       type: object
-      required: [id, customerId, amount, mpesaPhone, virtualCardId, status, otpVerified, verificationAttempts, loanId, lockedAt, expiresAt, retryAfterDays, receiptStatus, issueReportedAt, adminResponse, resolutionType, resolvedAt, resolvedBy, createdAt]
+      required: [id, customerId, amount, mpesaPhone, virtualCardId, isTrial, status, otpVerified, verificationAttempts, loanId, lockedAt, expiresAt, retryAfterDays, receiptStatus, issueReportedAt, adminResponse, resolutionType, resolvedAt, resolvedBy, createdAt]
       properties:
         id: { type: string }
         customerId: { type: string }
         amount: { type: string }
         mpesaPhone: { type: string }
-        virtualCardId: { type: string }
+        virtualCardId: { type: [string, 'null'] }
+        isTrial: { type: boolean }
         status:
           $ref: '#/components/schemas/WithdrawalStatus'
         otpVerified: { type: boolean }
@@ -1825,6 +1854,9 @@ components:
           type: string
           minLength: 9
           description: Safaricom (M-Pesa) registered number funds will be sent to.
+        amount:
+          type: number
+          description: Amount to withdraw (KES). Defaults to the full approved loan amount.
     RequestWithdrawalOtpResponse:
       type: object
       required: [message]

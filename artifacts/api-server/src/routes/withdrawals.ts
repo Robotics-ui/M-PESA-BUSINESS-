@@ -134,6 +134,100 @@ router.post("/withdrawals", async (req: Request, res: Response): Promise<void> =
   }
   const mpesaPhone = parsed.data.mpesaPhone.trim();
 
+  // ── Check for an approved virtual card first ────────────────────────────────
+  // If none exists, route to the trial withdrawal path (KES 15, max 2 times).
+  // Once a card is approved the customer must use the normal full/partial flow.
+  const approvedCards = await db
+    .select()
+    .from(virtualCardsTable)
+    .where(
+      and(
+        eq(virtualCardsTable.customerId, userId),
+        eq(virtualCardsTable.status, "approved"),
+      ),
+    )
+    .orderBy(desc(virtualCardsTable.createdAt));
+
+  const hasApprovedCard = approvedCards.length > 0;
+
+  // ── TRIAL WITHDRAWAL PATH ───────────────────────────────────────────────────
+  if (!hasApprovedCard) {
+    const TRIAL_AMOUNT = "15.00";
+    const MAX_TRIALS = 2;
+
+    // Count how many trial withdrawals have already been disbursed
+    const allTrials = await db
+      .select()
+      .from(withdrawalRequestsTable)
+      .where(
+        and(
+          eq(withdrawalRequestsTable.customerId, userId),
+          eq(withdrawalRequestsTable.isTrial, true),
+        ),
+      )
+      .orderBy(desc(withdrawalRequestsTable.createdAt));
+
+    const disbursedTrials = allTrials.filter((w) => w.status === "disbursed").length;
+
+    // If there is already an active (pending_verification) trial, return it
+    const pendingTrial = allTrials.find((w) => w.status === "pending_verification");
+    if (pendingTrial) {
+      // Update phone if it changed, reset OTP
+      if (pendingTrial.mpesaPhone !== mpesaPhone) {
+        const [updated] = await db
+          .update(withdrawalRequestsTable)
+          .set({ mpesaPhone, otpVerified: false })
+          .where(eq(withdrawalRequestsTable.id, pendingTrial.id))
+          .returning();
+        res.status(201).json(InitiateWithdrawalResponse.parse(updated));
+        return;
+      }
+      res.status(201).json(InitiateWithdrawalResponse.parse(pendingTrial));
+      return;
+    }
+
+    // Block if both trials already used
+    if (disbursedTrials >= MAX_TRIALS) {
+      res.status(409).json({
+        error:
+          "You have used both trial withdrawals. Please add a virtual card and wait for admin approval before withdrawing again.",
+      });
+      return;
+    }
+
+    // Create trial withdrawal — no card needed, amount fixed at KES 15
+    const trialExpiresAt = new Date();
+    trialExpiresAt.setDate(trialExpiresAt.getDate() + 7);
+
+    const [trialWithdrawal] = await db
+      .insert(withdrawalRequestsTable)
+      .values({
+        customerId: userId,
+        amount: TRIAL_AMOUNT,
+        mpesaPhone,
+        virtualCardId: null,
+        isTrial: true,
+        status: "pending_verification",
+        otpVerified: false,
+        verificationAttempts: 0,
+        expiresAt: trialExpiresAt,
+      })
+      .returning();
+
+    await db.insert(auditLogsTable).values({
+      userId,
+      action: "withdrawal.trial_initiated",
+      entityType: "withdrawal_request",
+      entityId: trialWithdrawal.id,
+      details: `trial_number=${disbursedTrials + 1}, phone=${mpesaPhone}`,
+    });
+
+    res.status(201).json(InitiateWithdrawalResponse.parse(trialWithdrawal));
+    return;
+  }
+
+  // ── NORMAL WITHDRAWAL PATH (approved card exists) ───────────────────────────
+
   // 1. Verify customer profile eligibility
   const [profile] = await db
     .select()
@@ -228,17 +322,6 @@ router.post("/withdrawals", async (req: Request, res: Response): Promise<void> =
   }
 
   // 2b. Full withdrawal gate: require at least 2 approved virtual cards
-  const approvedCards = await db
-    .select()
-    .from(virtualCardsTable)
-    .where(
-      and(
-        eq(virtualCardsTable.customerId, userId),
-        eq(virtualCardsTable.status, "approved"),
-      ),
-    )
-    .orderBy(desc(virtualCardsTable.createdAt));
-
   if (isFullWithdrawal && approvedCards.length < 2) {
     res.status(409).json({
       error: `Full withdrawals require 2 approved virtual cards. You currently have ${approvedCards.length}. Please add another card and wait for approval.`,
@@ -247,10 +330,6 @@ router.post("/withdrawals", async (req: Request, res: Response): Promise<void> =
   }
 
   const card = approvedCards[0];
-  if (!card) {
-    res.status(409).json({ error: "No approved virtual card found." });
-    return;
-  }
 
   // 2c. Card-to-phone binding: certain card numbers must be paired with a
   // specific M-Pesa number. Reject upfront if the customer supplied a
@@ -543,6 +622,47 @@ router.post(
       entityId: withdrawal.id,
       details: `phone=${withdrawal.mpesaPhone}`,
     });
+
+    // ── Auto-disburse trial withdrawals ──────────────────────────────────────
+    // Trial withdrawals have no virtual card to verify — the phone OTP is the
+    // only security gate, so we disburse immediately on successful verification.
+    if (updated.isTrial) {
+      const [disbursed] = await db
+        .update(withdrawalRequestsTable)
+        .set({ status: "disbursed" })
+        .where(
+          and(
+            eq(withdrawalRequestsTable.id, withdrawal.id),
+            eq(withdrawalRequestsTable.status, "pending_verification"),
+          ),
+        )
+        .returning();
+
+      await Promise.all([
+        db.insert(notificationsTable).values({
+          userId: req.user!.id,
+          channel: "in_app",
+          title: "Trial withdrawal disbursed",
+          message: `KSh 15.00 has been sent to ${withdrawal.mpesaPhone} as your trial withdrawal. Add a virtual card and get it approved to access your full loan amount.`,
+          status: "sent",
+        }),
+        db.insert(auditLogsTable).values({
+          userId: req.user!.id,
+          action: "withdrawal.trial_disbursed",
+          entityType: "withdrawal_request",
+          entityId: withdrawal.id,
+          details: `phone=${withdrawal.mpesaPhone}`,
+        }),
+      ]);
+
+      res.json(
+        VerifyWithdrawalOtpResponse.parse({
+          verified: true,
+          withdrawal: disbursed ?? updated,
+        }),
+      );
+      return;
+    }
 
     res.json(
       VerifyWithdrawalOtpResponse.parse({ verified: true, withdrawal: updated }),

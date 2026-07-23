@@ -75,7 +75,6 @@ import type {
   UpdateCustomerPhoneResponse,
   UpdateVirtualCardDetailsBody,
   UpsertGuarantorBody,
-  UpsertMyGuarantorBody,
   VerifyWithdrawalOtpBody,
   VerifyWithdrawalOtpResponse,
   ViolationItem,
@@ -3786,44 +3785,74 @@ export function useGetMyGuarantor<TData = Awaited<ReturnType<typeof getMyGuarant
 
 
 export const getUpsertMyGuarantorUrl = () => {
+
+
+
+
   return `/api/my/guarantor`
 }
 
 /**
  * @summary Customer creates or updates their own company guarantor
  */
-export const upsertMyGuarantor = async (
-  upsertMyGuarantorBody: UpsertMyGuarantorBody, options?: RequestInit): Promise<Guarantor> => {
-  return customFetch<Guarantor>(getUpsertMyGuarantorUrl(), {
+export const upsertMyGuarantor = async (upsertGuarantorBody: UpsertGuarantorBody, options?: RequestInit): Promise<Guarantor> => {
+
+  return customFetch<Guarantor>(getUpsertMyGuarantorUrl(),
+  {
     ...options,
     method: 'PUT',
     headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(upsertMyGuarantorBody)
-  });
-}
+    body: JSON.stringify(upsertGuarantorBody)
+  }
+);}
+
+
+
 
 export const getUpsertMyGuarantorMutationOptions = <TError = ErrorType<ErrorEnvelope>,
-  TContext = unknown>(options?: { mutation?: UseMutationOptions<Awaited<ReturnType<typeof upsertMyGuarantor>>, TError, BodyType<UpsertMyGuarantorBody>, TContext>, request?: SecondParameter<typeof customFetch> }
-): UseMutationOptions<Awaited<ReturnType<typeof upsertMyGuarantor>>, TError, BodyType<UpsertMyGuarantorBody>, TContext> => {
-  const mutationKey = ['upsertMyGuarantor'];
-  const { mutation: mutationOptions, request: requestOptions } = options ?? {};
-  const mutationFn: MutationFunction<Awaited<ReturnType<typeof upsertMyGuarantor>>, BodyType<UpsertMyGuarantorBody>> = (data) => {
-    return upsertMyGuarantor(data, requestOptions);
-  };
-  return { mutationKey, mutationFn, ...mutationOptions };
-};
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof upsertMyGuarantor>>, TError,{data: BodyType<UpsertGuarantorBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof upsertMyGuarantor>>, TError,{data: BodyType<UpsertGuarantorBody>}, TContext> => {
 
-export type UpsertMyGuarantorMutationResult = NonNullable<Awaited<ReturnType<typeof upsertMyGuarantor>>>
-export type UpsertMyGuarantorMutationBody = BodyType<UpsertMyGuarantorBody>
-export type UpsertMyGuarantorMutationError = ErrorType<ErrorEnvelope>
+const mutationKey = ['upsertMyGuarantor'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
 
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof upsertMyGuarantor>>, {data: BodyType<UpsertGuarantorBody>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  upsertMyGuarantor(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpsertMyGuarantorMutationResult = NonNullable<Awaited<ReturnType<typeof upsertMyGuarantor>>>
+    export type UpsertMyGuarantorMutationBody = BodyType<UpsertGuarantorBody>
+    export type UpsertMyGuarantorMutationError = ErrorType<ErrorEnvelope>
+
+    /**
+ * @summary Customer creates or updates their own company guarantor
+ */
 export const useUpsertMyGuarantor = <TError = ErrorType<ErrorEnvelope>,
-  TContext = unknown>(options?: { mutation?: UseMutationOptions<Awaited<ReturnType<typeof upsertMyGuarantor>>, TError, BodyType<UpsertMyGuarantorBody>, TContext>, request?: SecondParameter<typeof customFetch> }
-): UseMutationResult<Awaited<ReturnType<typeof upsertMyGuarantor>>, TError, BodyType<UpsertMyGuarantorBody>, TContext> => {
-  const mutationOptions = getUpsertMyGuarantorMutationOptions(options);
-  return useMutation(mutationOptions);
-};
-
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof upsertMyGuarantor>>, TError,{data: BodyType<UpsertGuarantorBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof upsertMyGuarantor>>,
+        TError,
+        {data: BodyType<UpsertGuarantorBody>},
+        TContext
+      > => {
+      return useMutation(getUpsertMyGuarantorMutationOptions(options));
+    }
 
 export const getGetCustomerGuarantorUrl = (id: string,) => {
 
