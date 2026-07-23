@@ -1032,9 +1032,13 @@ router.post(
         return null;
       }
 
-      if (newReceiptStatus === "confirmed") {
-        // Fetch the current balance inside the transaction so the subtraction
-        // is consistent even under concurrent updates.
+      if (newReceiptStatus === "confirmed" && !row.isTrial) {
+        // Trial withdrawals are KES-15 test disbursements — they are NOT a
+        // draw-down against the customer's approved loan balance, so we must
+        // not deduct from approvedLoanAmount for them.
+        //
+        // For real (non-trial) withdrawals: fetch the current balance inside
+        // the transaction so the subtraction is consistent under concurrency.
         const [currentProfile] = await tx
           .select({ approvedLoanAmount: customerProfilesTable.approvedLoanAmount })
           .from(customerProfilesTable)

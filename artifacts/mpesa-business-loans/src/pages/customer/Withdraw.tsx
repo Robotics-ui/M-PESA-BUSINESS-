@@ -615,11 +615,18 @@ export default function Withdraw() {
   if (step === "success" && receiptData) {
     // ── Sub-state: confirmed ────────────────────────────────────────────────
     if (receiptPhase === "confirmed") {
+      const isConfirmedTrial = !!activeWithdrawal?.isTrial;
       return (
         <div className="max-w-md space-y-6">
           <div>
-            <h1 className="text-2xl font-semibold text-foreground">Loan disbursed</h1>
-            <p className="text-muted-foreground mt-1">Your loan has been received successfully.</p>
+            <h1 className="text-2xl font-semibold text-foreground">
+              {isConfirmedTrial ? "Trial withdrawal confirmed" : "Loan disbursed"}
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              {isConfirmedTrial
+                ? "Your KES 15 trial has been confirmed received."
+                : "Your loan has been received successfully."}
+            </p>
           </div>
           <Card className="border-green-200 bg-green-50">
             <CardContent className="pt-6 space-y-4">
@@ -633,6 +640,9 @@ export default function Withdraw() {
                 <p className="text-sm text-muted-foreground mt-1">Sent to {receiptData.phone}</p>
                 <p className="text-xs text-muted-foreground mt-1">{formatDateTime(receiptData.at)}</p>
                 <Badge className="mt-2 bg-green-100 text-green-700 border-green-200">Funds confirmed received</Badge>
+                {isConfirmedTrial && (
+                  <Badge className="mt-2 ml-2 bg-blue-100 text-blue-700 border-blue-200">Trial withdrawal</Badge>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -646,19 +656,42 @@ export default function Withdraw() {
                 <span className="text-muted-foreground">M-Pesa number</span>
                 <span className="font-mono">{receiptData.phone}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Interest rate</span>
-                <span>10% flat</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Repayment term</span>
-                <span>12 monthly installments</span>
-              </div>
+              {isConfirmedTrial ? (
+                <>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Type</span>
+                    <span className="text-blue-700 font-medium">
+                      Trial ({trialWithdrawalsRemaining} of 2 remaining)
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground border-t border-border pt-3">
+                    This was a test disbursement — no repayment is required. Add a virtual card
+                    and get it approved to access your full loan amount.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Interest rate</span>
+                    <span>10% flat</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Repayment term</span>
+                    <span>12 monthly installments</span>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
-          <Button variant="outline" className="w-full" onClick={() => navigate("/loans")}>
-            View repayment schedule <ArrowRight className="h-4 w-4 ml-2" />
-          </Button>
+          {isConfirmedTrial ? (
+            <Button className="w-full" onClick={() => navigate("/virtual-card")}>
+              <CreditCard className="h-4 w-4 mr-2" /> Add a virtual card
+            </Button>
+          ) : (
+            <Button variant="outline" className="w-full" onClick={() => navigate("/loans")}>
+              View repayment schedule <ArrowRight className="h-4 w-4 ml-2" />
+            </Button>
+          )}
           <Button variant="ghost" className="w-full" onClick={() => navigate("/dashboard")}>
             Back to dashboard
           </Button>
