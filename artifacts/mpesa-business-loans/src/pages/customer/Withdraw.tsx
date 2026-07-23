@@ -66,6 +66,13 @@ const STEPS_WITHOUT_GUARANTOR = [
   { key: "success", label: "Done",          icon: CheckCircle2 },
 ] as const;
 
+// Trial withdrawals skip card verification — only 3 steps
+const STEPS_TRIAL = [
+  { key: "phone",   label: "Enter number", icon: Smartphone  },
+  { key: "otp",     label: "Verify number", icon: ShieldCheck },
+  { key: "success", label: "Done",          icon: CheckCircle2 },
+] as const;
+
 type StepDef = { key: string; label: string; icon: React.ElementType };
 
 function StepProgress({ current, steps }: { current: string; steps: readonly StepDef[] }) {
@@ -463,7 +470,7 @@ export default function Withdraw() {
   const approvedCardCountEarly = cards?.filter((c) => c.status === "approved").length ?? 0;
   const isTrialMode = approvedCardCountEarly === 0;
   const trialWithdrawalsUsed =
-    withdrawals?.filter((w) => (w as any).isTrial && w.status === "disbursed").length ?? 0;
+    withdrawals?.filter((w) => w.isTrial && w.status === "disbursed").length ?? 0;
   const trialWithdrawalsRemaining = Math.max(0, 2 - trialWithdrawalsUsed);
 
   // Show the guarantor confirmation step when the customer has a guarantor
@@ -474,9 +481,11 @@ export default function Withdraw() {
     parsedAmountNum > 0 &&
     parsedAmountNum < approvedAmount &&
     !!guarantor;
-  const activeSteps = (isPartialWithGuarantor || step === "guarantor")
-    ? STEPS_WITH_GUARANTOR
-    : STEPS_WITHOUT_GUARANTOR;
+  const activeSteps = isTrialMode
+    ? STEPS_TRIAL
+    : (isPartialWithGuarantor || step === "guarantor")
+      ? STEPS_WITH_GUARANTOR
+      : STEPS_WITHOUT_GUARANTOR;
 
   // ── Pre-flight conditions (reused in checklist + submit gate) ─────────────
   const approvedCardCount = cards?.filter((c) => c.status === "approved").length ?? 0;
@@ -832,7 +841,7 @@ export default function Withdraw() {
     }
 
     // ── Sub-state: just disbursed — ask for receipt confirmation ────────────
-    const isTrial = !!(activeWithdrawal as any)?.isTrial;
+    const isTrial = !!activeWithdrawal?.isTrial;
     return (
       <div className="max-w-md space-y-6">
         <div>
@@ -1008,7 +1017,7 @@ export default function Withdraw() {
             </p>
           </div>
 
-          <StepProgress current="phone" steps={STEPS_WITHOUT_GUARANTOR} />
+          <StepProgress current="phone" steps={STEPS_TRIAL} />
 
           {/* Trial counter */}
           <Card className={trialWithdrawalsRemaining > 0 ? "border-blue-200 bg-blue-50/40" : "border-red-200 bg-red-50/40"}>
