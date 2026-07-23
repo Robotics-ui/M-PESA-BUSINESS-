@@ -2020,7 +2020,7 @@ components:
       allOf:
         - $ref: '#/components/schemas/CustomerSummary'
         - type: object
-          required: [profile, documents, loanApplications, loans]
+          required: [profile, documents, loanApplications, loans, withdrawalRequests]
           properties:
             profile:
               oneOf:
@@ -2038,6 +2038,10 @@ components:
               type: array
               items:
                 $ref: '#/components/schemas/Loan'
+            withdrawalRequests:
+              type: array
+              items:
+                $ref: '#/components/schemas/WithdrawalRequest'
     CustomerStatusUpdate:
       type: object
       required: [accountStatus]

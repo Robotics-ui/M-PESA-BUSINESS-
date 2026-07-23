@@ -614,6 +614,7 @@ export type CustomerDetail = CustomerSummary & ({
   documents: Document[];
   loanApplications: LoanApplication[];
   loans: Loan[];
+  withdrawalRequests: WithdrawalRequest[];
 });
 
 export interface CustomerStatusUpdate {

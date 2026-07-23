@@ -11,6 +11,7 @@ import {
   systemSettingsTable,
   notificationsTable,
   virtualCardsTable,
+  withdrawalRequestsTable,
 } from "@workspace/db";
 import {
   GetAdminDashboardStatsResponse,
@@ -237,6 +238,12 @@ router.get(
       .from(loansTable)
       .where(eq(loansTable.customerId, customer.id));
 
+    const withdrawalRequests = await db
+      .select()
+      .from(withdrawalRequestsTable)
+      .where(eq(withdrawalRequestsTable.customerId, customer.id))
+      .orderBy(desc(withdrawalRequestsTable.createdAt));
+
     res.json(
       GetCustomerDetailResponse.parse({
         id: customer.id,
@@ -252,6 +259,7 @@ router.get(
         documents,
         loanApplications,
         loans,
+        withdrawalRequests,
       }),
     );
   },

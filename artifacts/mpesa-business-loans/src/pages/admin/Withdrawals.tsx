@@ -247,6 +247,7 @@ export default function Withdrawals() {
     if (statusFilter === "open_disputes")
       return w.receiptStatus === "not_received" && !w.resolvedAt;
     if (statusFilter === "all") return true;
+    if (statusFilter === "trials") return !!w.isTrial;
     return w.status === statusFilter;
   });
 
@@ -298,6 +299,7 @@ export default function Withdrawals() {
               ⚠ Open disputes{openDisputeCount > 0 ? ` (${openDisputeCount})` : ""}
             </SelectItem>
             <SelectItem value="all">All statuses</SelectItem>
+            <SelectItem value="trials">Trial withdrawals</SelectItem>
             <SelectItem value="pending_verification">Pending verification</SelectItem>
             <SelectItem value="disbursed">Disbursed</SelectItem>
             <SelectItem value="locked">Locked</SelectItem>
@@ -353,7 +355,12 @@ export default function Withdrawals() {
                       <TableCell className="font-medium">{formatCurrency(w.amount)}</TableCell>
                       <TableCell className="font-mono text-sm">{w.mpesaPhone}</TableCell>
                       <TableCell>
-                        <StatusBadge status={w.status} />
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <StatusBadge status={w.status} />
+                          {w.isTrial && (
+                            <Badge className="bg-blue-100 text-blue-700 border-blue-200">Trial</Badge>
+                          )}
+                        </div>
                         {w.status === "locked" && w.lockedAt && (
                           <p className="text-xs text-muted-foreground mt-1">
                             Locked {formatDateTime(w.lockedAt as unknown as string)}

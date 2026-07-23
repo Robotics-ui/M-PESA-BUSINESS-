@@ -559,6 +559,28 @@ export const GetCustomerDetailResponse = zod.object({
   "dueDate": zod.string(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date()
+})),
+  "withdrawalRequests": zod.array(zod.object({
+  "id": zod.string(),
+  "customerId": zod.string(),
+  "amount": zod.string(),
+  "mpesaPhone": zod.string(),
+  "virtualCardId": zod.string().nullable(),
+  "isTrial": zod.boolean(),
+  "status": zod.enum(['pending_verification', 'disbursed', 'failed', 'locked', 'expired']),
+  "otpVerified": zod.boolean(),
+  "verificationAttempts": zod.number(),
+  "loanId": zod.string().nullable(),
+  "lockedAt": zod.coerce.date().nullable(),
+  "expiresAt": zod.coerce.date().nullable(),
+  "retryAfterDays": zod.number().nullable(),
+  "receiptStatus": zod.enum(['pending', 'confirmed', 'not_received']),
+  "issueReportedAt": zod.coerce.date().nullable(),
+  "adminResponse": zod.string().nullable(),
+  "resolutionType": zod.union([zod.enum(['rejected', 'new_card_required', 'retry', 'reversed']),zod.null()]),
+  "resolvedAt": zod.coerce.date().nullable(),
+  "resolvedBy": zod.string().nullable(),
+  "createdAt": zod.coerce.date()
 }))
 }))
 
